@@ -144,14 +144,18 @@ export class StaticRing {
   }
 
   pop(): number | null {
-    if (this.size === 0) return null;
+    if (this.size === 0) {
+      return null;
+    }
     const value = this.values[this.lastIndex];
     this.remove(this.lastIndex);
     return value ?? null;
   }
 
   popFirst(): number | null {
-    if (this.size === 0) return null;
+    if (this.size === 0) {
+      return null;
+    }
     const value = this.values[this.firstIndex];
     this.remove(this.firstIndex);
     return value ?? null;

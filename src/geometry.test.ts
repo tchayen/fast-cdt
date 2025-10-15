@@ -31,19 +31,19 @@ const setupTriangle = () => {
   edges.setNext(ab, bc);
   edges.setNext(bc, ca);
   edges.setNext(ca, ab);
-  return { edges, ab, bc, ca };
+  return { ab, bc, ca, edges };
 };
 
 describe("geometry basics", () => {
   test("locatePoint finds containing triangle", () => {
-    const { edges, ab } = setupTriangle();
+    const { ab, edges } = setupTriangle();
     const point = P(0.1, 0.1);
     const containing = locatePoint(edges, point.x, point.y, ab);
     expect(containing).toBe(ab);
   });
 
   test("locatePoint returns null when stepping outside boundary", () => {
-    const { edges, ab } = setupTriangle();
+    const { ab, edges } = setupTriangle();
     const point = P(2, 2);
     expect(locatePoint(edges, point.x, point.y, ab)).toBeNull();
   });

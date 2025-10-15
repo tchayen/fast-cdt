@@ -1,15 +1,5 @@
 # fast-cdt
 
-To install dependencies:
+Next things:
 
-```bash
-bun install
-```
-
-To run:
-
-```bash
-bun run index.ts
-```
-
-This project was created using `bun init` in bun v1.2.18. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+- [ ] Try seeing in benchmarks what would be the impact of dropping `Static{Queue,Ring,Stack}` and replacing with something lighter using arrays.

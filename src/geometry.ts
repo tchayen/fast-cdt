@@ -185,11 +185,11 @@ export function findSharedEdge(
 
   while (i < LIMIT) {
     i += 1;
-    const ax = ctx.originXAt(current);
-    const ay = ctx.originYAt(current);
+    const ax = ctx.origins[current * 2]!;
+    const ay = ctx.origins[current * 2 + 1]!;
     const bIdx = nt(ctx.next[current], "Half-edge has no `next` reference");
-    const bx = ctx.originXAt(bIdx);
-    const by = ctx.originYAt(bIdx);
+    const bx = ctx.origins[bIdx * 2]!;
+    const by = ctx.origins[bIdx * 2 + 1]!;
     if (pointsEqual(ax, ay, e1x, e1y) && pointsEqual(bx, by, e2x, e2y)) {
       return current;
     }
@@ -206,11 +206,11 @@ export function findSharedEdge(
   current = start;
   while (i < LIMIT) {
     i += 1;
-    const ax = ctx.originXAt(current);
-    const ay = ctx.originYAt(current);
+    const ax = ctx.origins[current * 2]!;
+    const ay = ctx.origins[current * 2 + 1]!;
     const bIdx = nt(ctx.next[current], "Half-edge has no `next` reference");
-    const bx = ctx.originXAt(bIdx);
-    const by = ctx.originYAt(bIdx);
+    const bx = ctx.origins[bIdx * 2]!;
+    const by = ctx.origins[bIdx * 2 + 1]!;
     if (pointsEqual(ax, ay, e1x, e1y) && pointsEqual(bx, by, e2x, e2y)) {
       return current;
     }
@@ -350,12 +350,12 @@ export function insertPoint(ctx: EdgeContext, px: number, py: number): void {
     "triangle connectivity broken",
   );
 
-  const tx = ctx.originXAt(t);
-  const ty = ctx.originYAt(t);
-  const tNextX = ctx.originXAt(tNext);
-  const tNextY = ctx.originYAt(tNext);
-  const tNextNextX = ctx.originXAt(tNextNext);
-  const tNextNextY = ctx.originYAt(tNextNext);
+  const tx = ctx.origins[t * 2]!;
+  const ty = ctx.origins[t * 2 + 1]!;
+  const tNextX = ctx.origins[tNext * 2]!;
+  const tNextY = ctx.origins[tNext * 2 + 1]!;
+  const tNextNextX = ctx.origins[tNextNext * 2]!;
+  const tNextNextY = ctx.origins[tNextNext * 2 + 1]!;
 
   if (
     pointsEqual(tx, ty, px, py) ||
@@ -552,11 +552,11 @@ function markCrossing(
     i += 1;
     const [e0, e1Idx, e2Idx] = edgeLoopEdges(ctx, current);
     for (const candidate of [e0, e1Idx, e2Idx]) {
-      const ax = ctx.originXAt(candidate);
-      const ay = ctx.originYAt(candidate);
+      const ax = ctx.origins[candidate * 2]!;
+      const ay = ctx.origins[candidate * 2 + 1]!;
       const bIdx = nt(ctx.next[candidate], "Half-edge has no `next` reference");
-      const bx = ctx.originXAt(bIdx);
-      const by = ctx.originYAt(bIdx);
+      const bx = ctx.origins[bIdx * 2]!;
+      const by = ctx.origins[bIdx * 2 + 1]!;
       if (
         onSegment(ax, ay, e1x, e1y, e2x, e2y) &&
         onSegment(bx, by, e1x, e1y, e2x, e2y)
@@ -585,11 +585,11 @@ function markCrossing(
     i += 1;
     const [e0, e1Idx, e2Idx] = edgeLoopEdges(ctx, current);
     for (const candidate of [e0, e1Idx, e2Idx]) {
-      const ax = ctx.originXAt(candidate);
-      const ay = ctx.originYAt(candidate);
+      const ax = ctx.origins[candidate * 2]!;
+      const ay = ctx.origins[candidate * 2 + 1]!;
       const bIdx = nt(ctx.next[candidate], "Half-edge has no `next` reference");
-      const bx = ctx.originXAt(bIdx);
-      const by = ctx.originYAt(bIdx);
+      const bx = ctx.origins[bIdx * 2]!;
+      const by = ctx.origins[bIdx * 2 + 1]!;
       if (
         onSegment(ax, ay, e1x, e1y, e2x, e2y) &&
         onSegment(bx, by, e1x, e1y, e2x, e2y)
@@ -657,11 +657,11 @@ export function enforceEdge(
     const edge = popped;
 
     if (ctx.isFixed(edge)) {
-      const ax = ctx.originXAt(edge);
-      const ay = ctx.originYAt(edge);
+      const ax = ctx.origins[edge * 2]!;
+      const ay = ctx.origins[edge * 2 + 1]!;
       const bIdx = nt(ctx.next[edge], "Half-edge has no `next` reference");
-      const bx = ctx.originXAt(bIdx);
-      const by = ctx.originYAt(bIdx);
+      const bx = ctx.origins[bIdx * 2]!;
+      const by = ctx.origins[bIdx * 2 + 1]!;
       const intersection = intersect(e1x, e1y, e2x, e2y, ax, ay, bx, by);
       assert(intersection !== null, "Expected intersection to exist");
       insertPointInEdge(ctx, intersection!.x, intersection!.y, edge);
@@ -677,11 +677,11 @@ export function enforceEdge(
 
     flip(ctx, edge);
 
-    const originX = ctx.originXAt(edge);
-    const originY = ctx.originYAt(edge);
+    const originX = ctx.origins[edge * 2]!;
+    const originY = ctx.origins[edge * 2 + 1]!;
     const destIdx = nt(ctx.next[edge], "Half-edge has no `next` reference");
-    const destX = ctx.originXAt(destIdx);
-    const destY = ctx.originYAt(destIdx);
+    const destX = ctx.origins[destIdx * 2]!;
+    const destY = ctx.origins[destIdx * 2 + 1]!;
     if (
       onSegment(originX, originY, e1x, e1y, e2x, e2y) &&
       onSegment(destX, destY, e1x, e1y, e2x, e2y)
@@ -840,12 +840,12 @@ export function removeCollinear(
     const collinear =
       Math.abs(
         orient2D(
-          ctx.originXAt(aEdge),
-          ctx.originYAt(aEdge),
-          ctx.originXAt(bEdge),
-          ctx.originYAt(bEdge),
-          ctx.originXAt(cEdge),
-          ctx.originYAt(cEdge),
+          ctx.origins[aEdge * 2]!,
+          ctx.origins[aEdge * 2 + 1]!,
+          ctx.origins[bEdge * 2]!,
+          ctx.origins[bEdge * 2 + 1]!,
+          ctx.origins[cEdge * 2]!,
+          ctx.origins[cEdge * 2 + 1]!,
         ),
       ) <= EPS;
 
@@ -893,7 +893,9 @@ function computeIsEar(
   do {
     if (other !== aNode && other !== bNode && other !== cNode) {
       const p = ctx.origin(boundary.valueOf(other));
-      if (inTriangle(p.x, p.y, ax, ay, bx, by, cx, cy)) return false;
+      if (inTriangle(p.x, p.y, ax, ay, bx, by, cx, cy)) {
+        return false;
+      }
     }
     other = boundary.nextOf(other);
   } while (other !== boundary.first);
