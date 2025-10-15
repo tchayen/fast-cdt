@@ -1,0 +1,26 @@
+import { describe, expect, test } from "vitest";
+import { EdgeContext } from "../src/EdgeContext";
+
+describe("EdgeContext", () => {
+  test("basic allocation lifecycle", () => {
+    const edges = new EdgeContext(32);
+    const e1 = edges.create(0, 0);
+    const e2 = edges.create(10, 10);
+
+    expect(edges.count()).toBe(2);
+    expect(edges.countUsed()).toBeGreaterThanOrEqual(2);
+
+    edges.destroy(e1);
+    expect(edges.count()).toBe(1);
+
+    const iterated = [...edges.iterator()];
+    expect(iterated).toContain(e2);
+  });
+
+  test("any throws on empty", () => {
+    const edges = new EdgeContext(4);
+    expect(() => edges.any()).toThrow();
+    const e = edges.create(1, 1);
+    expect(edges.any()).toBe(e);
+  });
+});
