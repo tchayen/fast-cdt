@@ -1,4 +1,4 @@
-export const EPS = 1e-8;
+export const EPS = 1e-5;
 
 export function orient2D(
   ax: number,

@@ -126,9 +126,11 @@ describe("geometry advanced functions", () => {
     insertPoint(edges, 60, 80);
 
     const queue = new GeometryQueue();
-    const seed = locatePoint(edges, 100, 100, edges.any());
-    expect(seed).not.toBeNull();
-    getIntersecting(edges, queue, seed!, 100, 100, 0, 0);
+    const triangle = locatePoint(edges, 100, 100, edges.any());
+    expect(triangle).not.toBeNull();
+    const vertexEdge = getVertex(edges, 100, 100, triangle!);
+    expect(vertexEdge).not.toBe(-1);
+    getIntersecting(edges, queue, vertexEdge, 100, 100, 0, 0);
 
     const collected: number[] = [];
     for (let value = queue.pop(); value !== null; value = queue.pop()) {
