@@ -35,19 +35,19 @@ describe("edges helpers", () => {
     const ab = edges.create(a.x, a.y);
     const bc = edges.create(b.x, b.y);
     const ca = edges.create(c.x, c.y);
-    edges.setNext(ab, bc);
-    edges.setNext(bc, ca);
-    edges.setNext(ca, ab);
+    edges.next[ab] = bc;
+    edges.next[bc] = ca;
+    edges.next[ca] = ab;
 
     const cd = edges.create(c.x, c.y);
     const da = edges.create(d.x, d.y);
     const ac = edges.create(a.x, a.y);
-    edges.setNext(cd, da);
-    edges.setNext(da, ac);
-    edges.setNext(ac, cd);
+    edges.next[cd] = da;
+    edges.next[da] = ac;
+    edges.next[ac] = cd;
 
-    edges.setTwin(ac, ca);
-    edges.setTwin(ca, ac);
+    edges.twin[ac] = ca;
+    edges.twin[ca] = ac;
 
     expect(isConvexQuad(edges, ac)).toBe(true);
   });
@@ -62,19 +62,19 @@ describe("edges helpers", () => {
     const ab = edges.create(a.x, a.y);
     const bc = edges.create(b.x, b.y);
     const ca = edges.create(c.x, c.y);
-    edges.setNext(ab, bc);
-    edges.setNext(bc, ca);
-    edges.setNext(ca, ab);
+    edges.next[ab] = bc;
+    edges.next[bc] = ca;
+    edges.next[ca] = ab;
 
     const ac = edges.create(a.x, a.y);
     const cd = edges.create(c.x, c.y);
     const da = edges.create(d.x, d.y);
-    edges.setNext(ac, cd);
-    edges.setNext(cd, da);
-    edges.setNext(da, ac);
+    edges.next[ac] = cd;
+    edges.next[cd] = da;
+    edges.next[da] = ac;
 
-    edges.setTwin(ac, ca);
-    edges.setTwin(ca, ac);
+    edges.twin[ac] = ca;
+    edges.twin[ca] = ac;
 
     expect(isDelaunay(edges, ac)).toBe(true);
     expect(isDelaunay(edges, ca)).toBe(true);
@@ -89,9 +89,9 @@ describe("edges helpers", () => {
     const ab = edges.create(a.x, a.y);
     const bc = edges.create(b.x, b.y);
     const ca = edges.create(c.x, c.y);
-    edges.setNext(ab, bc);
-    edges.setNext(bc, ca);
-    edges.setNext(ca, ab);
+    edges.next[ab] = bc;
+    edges.next[bc] = ca;
+    edges.next[ca] = ab;
 
     expect(getVertex(edges, a.x, a.y, ab)).toBe(ab);
     expect(getVertex(edges, b.x, b.y, ab)).toBe(bc);
@@ -109,9 +109,9 @@ describe("edges helpers", () => {
     const ab = edges.create(a.x, a.y);
     const bc = edges.create(b.x, b.y);
     const ca = edges.create(c.x, c.y);
-    edges.setNext(ab, bc);
-    edges.setNext(bc, ca);
-    edges.setNext(ca, ab);
+    edges.next[ab] = bc;
+    edges.next[bc] = ca;
+    edges.next[ca] = ab;
 
     expect(isEdgeEqual(edges, ab, a.x, a.y, b.x, b.y)).toBe(true);
     expect(isEdgeEqual(edges, ab, b.x, b.y, a.x, a.y)).toBe(true);

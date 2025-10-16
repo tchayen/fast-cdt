@@ -72,9 +72,9 @@ function exportEdges(): HalfEdge[] {
 
     const originX = edges.origins[i * 2]!;
     const originY = edges.origins[i * 2 + 1]!;
-    const next = edges.getNext(i);
-    const twin = edges.getTwin(i);
-    const fixed = edges.isFixed(i);
+    const next = edges.next[i]!;
+    const twin = edges.twin[i]!;
+    const fixed = edges.fixed[i] === 1;
 
     result.push({
       fixed,

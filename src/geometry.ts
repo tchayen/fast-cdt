@@ -100,24 +100,27 @@ export function square(ctx: EdgeContext, width: number, height: number): void {
   const ab = ctx.create(0, 0);
   const bc = ctx.create(width, 0);
   const ca = ctx.create(width, height);
-  ctx.setNext(ab, bc);
-  ctx.setNext(bc, ca);
-  ctx.setNext(ca, ab);
+  ctx.next[ab] = bc;
+  ctx.next[bc] = ca;
+  ctx.next[ca] = ab;
 
   const cd = ctx.create(width, height);
   const da = ctx.create(0, height);
   const ac = ctx.create(0, 0);
-  ctx.setNext(cd, da);
-  ctx.setNext(da, ac);
-  ctx.setNext(ac, cd);
+  ctx.next[cd] = da;
+  ctx.next[da] = ac;
+  ctx.next[ac] = cd;
 
-  ctx.setTwin(ac, ca);
-  ctx.setTwin(ca, ac);
+  ctx.twin[ac] = ca;
+  ctx.twin[ca] = ac;
 }
 
 export function flip(ctx: EdgeContext, edge: number): void {
-  const twin = nt(ctx.twin[edge], "Half-edge has no twin");
-  assert(!ctx.isFixed(edge) && !ctx.isFixed(twin), "cannot flip fixed edge");
+  const twin = nt(ctx.twin[edge]!, "Half-edge has no twin");
+  assert(
+    ctx.fixed[edge] !== 1 && ctx.fixed[twin] !== 1,
+    "cannot flip fixed edge",
+  );
   assert(isConvexQuad(ctx, edge), "flip requires convex quad");
 
   const ac = edge;
@@ -134,13 +137,13 @@ export function flip(ctx: EdgeContext, edge: number): void {
   const bcY = ctx.origins[bc * 2 + 1]!;
   ctx.setOrigin(ca, bcX, bcY);
 
-  ctx.setNext(ac, bc);
-  ctx.setNext(cd, ac);
-  ctx.setNext(bc, cd);
+  ctx.next[ac] = bc;
+  ctx.next[cd] = ac;
+  ctx.next[bc] = cd;
 
-  ctx.setNext(ca, da);
-  ctx.setNext(ab, ca);
-  ctx.setNext(da, ab);
+  ctx.next[ca] = da;
+  ctx.next[ab] = ca;
+  ctx.next[da] = ab;
 }
 
 export function flipEdges(
@@ -153,11 +156,11 @@ export function flipEdges(
       break;
     }
     const edge = stackValues[--stackTop.value]!;
-    const twin = ctx.getTwin(edge);
+    const twin = ctx.twin[edge]!;
     if (twin === -1) {
       continue;
     }
-    if (ctx.isFixed(edge) || ctx.isFixed(twin)) {
+    if (ctx.fixed[edge] === 1 || ctx.fixed[twin] === 1) {
       continue;
     }
     if (isDelaunay(ctx, edge)) {
@@ -196,7 +199,7 @@ export function findSharedEdge(
     if (pointsEqual(ax, ay, e1x, e1y) && pointsEqual(bx, by, e2x, e2y)) {
       return current;
     }
-    const twin = ctx.getTwin(current);
+    const twin = ctx.twin[current]!;
     if (twin === -1) {
       break;
     }
@@ -217,12 +220,15 @@ export function findSharedEdge(
     if (pointsEqual(ax, ay, e1x, e1y) && pointsEqual(bx, by, e2x, e2y)) {
       return current;
     }
-    const next = ctx.getTwin(
-      nt(
-        ctx.next[nt(ctx.next[current], "Half-edge has no `next` reference")],
-        "Half-edge has no `next` reference",
-      ),
-    );
+    const next =
+      ctx.twin[
+        nt(
+          ctx.next[
+            nt(ctx.next[current]!, "Half-edge has no `next` reference")
+          ]!,
+          "Half-edge has no `next` reference",
+        )
+      ]!;
     if (next === -1) {
       break;
     }
@@ -248,46 +254,46 @@ function insertPointInEdge(
   const daY = ctx.origins[da * 2 + 1]!;
   const pd = ctx.create(px, py);
   const dp = ctx.create(daX, daY);
-  ctx.setTwin(pd, dp);
-  ctx.setTwin(dp, pd);
+  ctx.twin[pd] = dp;
+  ctx.twin[dp] = pd;
 
-  ctx.setNext(ac, pd);
-  ctx.setNext(pd, da);
+  ctx.next[ac] = pd;
+  ctx.next[pd] = da;
 
-  const pc = ctx.create(px, py, -1, -1, ctx.isFixed(ac));
-  ctx.setNext(pc, cd);
-  ctx.setNext(dp, pc);
-  ctx.setNext(cd, dp);
+  const pc = ctx.create(px, py, -1, -1, ctx.fixed[ac] === 1);
+  ctx.next[pc] = cd;
+  ctx.next[dp] = pc;
+  ctx.next[cd] = dp;
 
   insertStackTop = 0;
   insertStack[insertStackTop++] = cd;
   insertStack[insertStackTop++] = da;
 
-  const pa = ctx.getTwin(ac);
+  const pa = ctx.twin[ac]!;
   if (pa !== -1) {
     ctx.setOrigin(pa, px, py);
     const ab = nt(ctx.next[pa], "Half-edge has no `next` reference");
 
     const cdX = ctx.origins[cd * 2]!;
     const cdY = ctx.origins[cd * 2 + 1]!;
-    const cp = ctx.create(cdX, cdY, -1, -1, ctx.isFixed(pa));
-    ctx.setTwin(pc, cp);
-    ctx.setTwin(cp, pc);
+    const cp = ctx.create(cdX, cdY, -1, -1, ctx.fixed[pa] === 1);
+    ctx.twin[pc] = cp;
+    ctx.twin[cp] = pc;
 
     const bc = nt(ctx.next[ab], "Half-edge has no `next` reference");
     const bcX = ctx.origins[bc * 2]!;
     const bcY = ctx.origins[bc * 2 + 1]!;
     const pb = ctx.create(px, py);
     const bp = ctx.create(bcX, bcY);
-    ctx.setTwin(pb, bp);
-    ctx.setTwin(bp, pb);
+    ctx.twin[pb] = bp;
+    ctx.twin[bp] = pb;
 
-    ctx.setNext(ab, bp);
-    ctx.setNext(bp, pa);
+    ctx.next[ab] = bp;
+    ctx.next[bp] = pa;
 
-    ctx.setNext(cp, pb);
-    ctx.setNext(pb, bc);
-    ctx.setNext(bc, cp);
+    ctx.next[cp] = pb;
+    ctx.next[pb] = bc;
+    ctx.next[bc] = cp;
 
     insertStack[insertStackTop++] = ab;
     insertStack[insertStackTop++] = bc;
@@ -316,29 +322,29 @@ function insertPointInFace(
 
   const pa = ctx.create(px, py);
   const ap = ctx.create(ax, ay);
-  ctx.setTwin(pa, ap);
-  ctx.setTwin(ap, pa);
-  ctx.setNext(pa, ab);
+  ctx.twin[pa] = ap;
+  ctx.twin[ap] = pa;
+  ctx.next[pa] = ab;
 
   const pb = ctx.create(px, py);
   const bp = ctx.create(bx, by);
-  ctx.setTwin(pb, bp);
-  ctx.setTwin(bp, pb);
-  ctx.setNext(pb, bc);
+  ctx.twin[pb] = bp;
+  ctx.twin[bp] = pb;
+  ctx.next[pb] = bc;
 
   const pc = ctx.create(px, py);
   const cp = ctx.create(cx, cy);
-  ctx.setTwin(pc, cp);
-  ctx.setTwin(cp, pc);
-  ctx.setNext(pc, ca);
+  ctx.twin[pc] = cp;
+  ctx.twin[cp] = pc;
+  ctx.next[pc] = ca;
 
-  ctx.setNext(ap, pc);
-  ctx.setNext(bp, pa);
-  ctx.setNext(cp, pb);
+  ctx.next[ap] = pc;
+  ctx.next[bp] = pa;
+  ctx.next[cp] = pb;
 
-  ctx.setNext(ab, bp);
-  ctx.setNext(bc, cp);
-  ctx.setNext(ca, ap);
+  ctx.next[ab] = bp;
+  ctx.next[bc] = cp;
+  ctx.next[ca] = ap;
 
   insertStackTop = 0;
   insertStack[insertStackTop++] = ab;
@@ -429,7 +435,7 @@ function findStartEdgeForIntersect(
       return current;
     }
 
-    const twin = ctx.getTwin(current);
+    const twin = ctx.twin[current]!;
     if (twin === -1) {
       break;
     }
@@ -453,12 +459,15 @@ function findStartEdgeForIntersect(
       return current;
     }
 
-    const next = ctx.getTwin(
-      nt(
-        ctx.next[nt(ctx.next[current], "Half-edge has no `next` reference")],
-        "Half-edge has no `next` reference",
-      ),
-    );
+    const next =
+      ctx.twin[
+        nt(
+          ctx.next[
+            nt(ctx.next[current]!, "Half-edge has no `next` reference")
+          ]!,
+          "Half-edge has no `next` reference",
+        )
+      ]!;
     if (next === -1) {
       break;
     }
@@ -518,7 +527,7 @@ export function getIntersecting(
       const by = ctx.origins[bIdx * 2 + 1]!;
       const intersection = intersect(ax, ay, bx, by, e1x, e1y, e2x, e2y);
       if (intersection !== null) {
-        const twin = ctx.getTwin(edge);
+        const twin = ctx.twin[edge]!;
         assert(twin !== -1, "intersecting edge should have a twin");
         queue[queueEnd++] = edge;
         current = twin;
@@ -554,15 +563,15 @@ function markCrossing(
         onSegment(ax, ay, e1x, e1y, e2x, e2y) &&
         onSegment(bx, by, e1x, e1y, e2x, e2y)
       ) {
-        ctx.setFixed(candidate, true);
-        const twin = ctx.getTwin(candidate);
+        ctx.fixed[candidate] = 1;
+        const twin = ctx.twin[candidate]!;
         if (twin !== -1) {
-          ctx.setFixed(twin, true);
+          ctx.fixed[twin] = 1;
         }
       }
     }
 
-    const twin = ctx.getTwin(current);
+    const twin = ctx.twin[current]!;
     if (twin === -1) {
       break;
     }
@@ -589,20 +598,23 @@ function markCrossing(
         onSegment(ax, ay, e1x, e1y, e2x, e2y) &&
         onSegment(bx, by, e1x, e1y, e2x, e2y)
       ) {
-        ctx.setFixed(candidate, true);
-        const twin = ctx.getTwin(candidate);
+        ctx.fixed[candidate] = 1;
+        const twin = ctx.twin[candidate]!;
         if (twin !== -1) {
-          ctx.setFixed(twin, true);
+          ctx.fixed[twin] = 1;
         }
       }
     }
 
-    const next = ctx.getTwin(
-      nt(
-        ctx.next[nt(ctx.next[current], "Half-edge has no `next` reference")],
-        "Half-edge has no `next` reference",
-      ),
-    );
+    const next =
+      ctx.twin[
+        nt(
+          ctx.next[
+            nt(ctx.next[current]!, "Half-edge has no `next` reference")
+          ]!,
+          "Half-edge has no `next` reference",
+        )
+      ]!;
     if (next === -1) {
       break;
     }
@@ -632,10 +644,10 @@ export function enforceEdge(
   if (vertex !== -1) {
     const shared = findSharedEdge(ctx, p, e1x, e1y, e2x, e2y);
     if (shared !== -1) {
-      ctx.setFixed(shared, true);
-      const twinShared = ctx.getTwin(shared);
+      ctx.fixed[shared] = 1;
+      const twinShared = ctx.twin[shared]!;
       if (twinShared !== -1) {
-        ctx.setFixed(twinShared, true);
+        ctx.fixed[twinShared] = 1;
       }
       return;
     }
@@ -649,7 +661,7 @@ export function enforceEdge(
     }
     const edge = queue[queueBegin++]!;
 
-    if (ctx.isFixed(edge)) {
+    if (ctx.fixed[edge] === 1) {
       const ax = ctx.origins[edge * 2]!;
       const ay = ctx.origins[edge * 2 + 1]!;
       const bIdx = nt(ctx.next[edge], "Half-edge has no `next` reference");
@@ -679,10 +691,10 @@ export function enforceEdge(
       onSegment(originX, originY, e1x, e1y, e2x, e2y) &&
       onSegment(destX, destY, e1x, e1y, e2x, e2y)
     ) {
-      ctx.setFixed(edge, true);
-      const twin = ctx.getTwin(edge);
+      ctx.fixed[edge] = 1;
+      const twin = ctx.twin[edge]!;
       if (twin !== -1) {
-        ctx.setFixed(twin, true);
+        ctx.fixed[twin] = 1;
       }
     }
 
@@ -693,7 +705,7 @@ export function enforceEdge(
 }
 
 function isBoundaryEdge(ctx: EdgeContext, edge: number): boolean {
-  return ctx.getTwin(edge) === -1;
+  return ctx.twin[edge]! === -1;
 }
 
 function ringContains(ring: Ring, edge: number): boolean {
@@ -755,9 +767,8 @@ export function collectBoundary(
       "Half-edge has no `next` reference",
     );
 
-    const twin = ctx.getTwin(
-      nt(ctx.next[next], "Half-edge has no `next` reference"),
-    );
+    const twin =
+      ctx.twin[nt(ctx.next[next]!, "Half-edge has no `next` reference")]!;
     if (twin === -1) {
       boundary.append(nt(ctx.next[next], "Half-edge has no `next` reference"));
       continueCW = true;
@@ -772,11 +783,11 @@ export function collectBoundary(
   }
 
   if (continueCW) {
-    if (ctx.getTwin(startVertex) === -1) {
+    if (ctx.twin[startVertex]! === -1) {
       boundary.prepend(startVertex);
     }
 
-    let currentCW = ctx.getTwin(startVertex);
+    let currentCW = ctx.twin[startVertex]!;
     while (currentCW !== -1) {
       i += 1;
       assert(i < LIMIT, "collectBoundary exceeded iteration cap (cw)");
@@ -792,9 +803,10 @@ export function collectBoundary(
         "Half-edge has no `next` reference",
       );
 
-      const nextTwin = ctx.getTwin(
-        nt(ctx.next[currentCW], "Half-edge has no `next` reference"),
-      );
+      const nextTwin =
+        ctx.twin[
+          nt(ctx.next[currentCW]!, "Half-edge has no `next` reference")
+        ]!;
       if (nextTwin === -1) {
         boundary.prepend(
           nt(ctx.next[currentCW], "Half-edge has no `next` reference"),
@@ -840,7 +852,7 @@ export function removeCollinear(ctx: EdgeContext, boundary: Ring): void {
 
     if (isOnBoundary && collinear) {
       ctx.destroy(bEdge);
-      ctx.setNext(aEdge, cEdge);
+      ctx.next[aEdge] = cEdge;
       boundary.remove(bNode);
       if (boundary.length() < 3) {
         break;
@@ -935,12 +947,12 @@ export function fillCavity(ctx: EdgeContext, boundary: Ring): void {
     if (isEar) {
       const ca = ctx.create(cx, cy);
       const ac = ctx.create(ax, ay);
-      ctx.setTwin(ca, ac);
-      ctx.setTwin(ac, ca);
+      ctx.twin[ca] = ac;
+      ctx.twin[ac] = ca;
 
-      ctx.setNext(aEdge, bEdge);
-      ctx.setNext(bEdge, ca);
-      ctx.setNext(ca, aEdge);
+      ctx.next[aEdge] = bEdge;
+      ctx.next[bEdge] = ca;
+      ctx.next[ca] = aEdge;
 
       flipStack[flipStackTop++] = aEdge;
       flipStack[flipStackTop++] = bEdge;
@@ -960,9 +972,9 @@ export function fillCavity(ctx: EdgeContext, boundary: Ring): void {
     const aEdge = boundary.valueOf(first);
     const bEdge = boundary.valueOf(second);
     const cEdge = boundary.valueOf(third);
-    ctx.setNext(aEdge, bEdge);
-    ctx.setNext(bEdge, cEdge);
-    ctx.setNext(cEdge, aEdge);
+    ctx.next[aEdge] = bEdge;
+    ctx.next[bEdge] = cEdge;
+    ctx.next[cEdge] = aEdge;
   }
 
   flipEdges(ctx, flipStack, { value: flipStackTop });

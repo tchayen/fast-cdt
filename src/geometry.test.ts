@@ -24,9 +24,9 @@ const setupTriangle = () => {
   const ab = edges.create(a.x, a.y);
   const bc = edges.create(b.x, b.y);
   const ca = edges.create(c.x, c.y);
-  edges.setNext(ab, bc);
-  edges.setNext(bc, ca);
-  edges.setNext(ca, ab);
+  edges.next[ab] = bc;
+  edges.next[bc] = ca;
+  edges.next[ca] = ab;
   return { ab, bc, ca, edges };
 };
 
@@ -54,29 +54,32 @@ describe("geometry", () => {
     const ab = edges.create(a.x, a.y);
     const bc = edges.create(b.x, b.y);
     const ca = edges.create(c.x, c.y);
-    edges.setNext(ab, bc);
-    edges.setNext(bc, ca);
-    edges.setNext(ca, ab);
+    edges.next[ab] = bc;
+    edges.next[bc] = ca;
+    edges.next[ca] = ab;
 
     const ac = edges.create(a.x, a.y);
     const cd = edges.create(c.x, c.y);
     const da = edges.create(d.x, d.y);
-    edges.setNext(ac, cd);
-    edges.setNext(cd, da);
-    edges.setNext(da, ac);
+    edges.next[ac] = cd;
+    edges.next[cd] = da;
+    edges.next[da] = ac;
 
-    edges.setTwin(ac, ca);
-    edges.setTwin(ca, ac);
+    edges.twin[ac] = ca;
+    edges.twin[ca] = ac;
 
     flip(edges, ac);
-    expect(edges.getNext(ac)).toBe(bc);
+    expect(edges.next[ac]!).toBe(bc);
   });
 
   test("findSharedEdge discovers direct edge", () => {
     const edges = new EdgeContext(32);
     square(edges, 4, 4);
     const any = edges.any();
-    const point = { x: edges.originXAt(any), y: edges.originYAt(any) };
+    const point = {
+      x: edges.origins[any * 2]!,
+      y: edges.origins[any * 2 + 1]!,
+    };
     const startEdge = locatePoint(edges, point.x, point.y, any);
     expect(startEdge).not.toBeNull();
     const shared = findSharedEdge(edges, startEdge!, point.x, point.y, 4, 4);
@@ -90,7 +93,10 @@ describe("geometry", () => {
     const p = P(40, 40);
     insertPoint(edges, 40, 40);
     const withPoint = [...edges.iterator()].some((edge) => {
-      const origin = { x: edges.originXAt(edge), y: edges.originYAt(edge) };
+      const origin = {
+        x: edges.origins[edge * 2]!,
+        y: edges.origins[edge * 2 + 1]!,
+      };
       return Math.abs(origin.x - p.x) < 1e-6 && Math.abs(origin.y - p.y) < 1e-6;
     });
     expect(withPoint).toBe(true);
@@ -102,7 +108,10 @@ describe("geometry", () => {
     const onEdge = P(50, 0);
     insertPoint(edges, 50, 0);
     const onEdgeExists = [...edges.iterator()].some((edge) => {
-      const origin = { x: edges.originXAt(edge), y: edges.originYAt(edge) };
+      const origin = {
+        x: edges.origins[edge * 2]!,
+        y: edges.origins[edge * 2 + 1]!,
+      };
       return (
         Math.abs(origin.x - onEdge.x) < 1e-6 &&
         Math.abs(origin.y - onEdge.y) < 1e-6
@@ -156,8 +165,14 @@ describe("geometry", () => {
         const nextNode = ring.nextOf(node);
         const nextIdx = ring.valueOf(nextNode);
         actual.push([
-          { x: edges.originXAt(edgeIdx), y: edges.originYAt(edgeIdx) },
-          { x: edges.originXAt(nextIdx), y: edges.originYAt(nextIdx) },
+          {
+            x: edges.origins[edgeIdx * 2]!,
+            y: edges.origins[edgeIdx * 2 + 1]!,
+          },
+          {
+            x: edges.origins[nextIdx * 2]!,
+            y: edges.origins[nextIdx * 2 + 1]!,
+          },
         ]);
         node = nextNode;
       } while (node !== ring.first && actual.length < expected.length);

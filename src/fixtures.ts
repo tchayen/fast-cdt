@@ -208,7 +208,7 @@ export function selfIntersecting(edges: EdgeContext): void {
 export function grid(edges: EdgeContext): void {
   edges.reset();
   for (let i = 0; i < edges.count(); i += 1) {
-    edges.setFixed(i, false);
+    edges.fixed[i] = 0;
   }
   square(edges, 100, 100);
 
@@ -234,7 +234,7 @@ export function grid(edges: EdgeContext): void {
 export function benchmarkGrid(edges: EdgeContext): void {
   edges.reset();
   for (let i = 0; i < edges.count(); i += 1) {
-    edges.setFixed(i, false);
+    edges.fixed[i] = 0;
   }
   square(edges, 100, 100);
 

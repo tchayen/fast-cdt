@@ -16,8 +16,8 @@ export class EdgeContext {
     this.origins = new Float32Array(capacity * 2);
     this.next = new Int32Array(capacity).fill(-1);
     this.twin = new Int32Array(capacity).fill(-1);
-    this.fixed = new Uint8Array(capacity);
-    this.inUse = new Uint8Array(capacity);
+    this.fixed = new Uint8Array(capacity).fill(0);
+    this.inUse = new Uint8Array(capacity).fill(0);
     this.freeStack = new Int32Array(capacity);
     this.freeTop = capacity;
     for (let i = 0; i < capacity; i += 1) {
@@ -109,42 +109,6 @@ export class EdgeContext {
   setOrigin(index: number, x: number, y: number): void {
     this.origins[index * 2] = x;
     this.origins[index * 2 + 1] = y;
-  }
-
-  origin(index: number): { x: number; y: number } {
-    return { x: this.origins[index * 2]!, y: this.origins[index * 2 + 1]! };
-  }
-
-  originXAt(index: number): number {
-    return this.origins[index * 2]!;
-  }
-
-  originYAt(index: number): number {
-    return this.origins[index * 2 + 1]!;
-  }
-
-  setNext(index: number, nextIndex: number): void {
-    this.next[index] = nextIndex;
-  }
-
-  getNext(index: number): number {
-    return this.next[index]!;
-  }
-
-  setTwin(index: number, twinIndex: number): void {
-    this.twin[index] = twinIndex;
-  }
-
-  getTwin(index: number): number {
-    return this.twin[index]!;
-  }
-
-  isFixed(index: number): boolean {
-    return this.fixed[index] === 1;
-  }
-
-  setFixed(index: number, value: boolean): void {
-    this.fixed[index] = value ? 1 : 0;
   }
 
   private recomputeMaxUsedIndex(): void {
