@@ -129,10 +129,12 @@ export function flip(ctx: EdgeContext, edge: number): void {
   const cd = nt(ctx.next[ac], "Half-edge has no `next` reference");
   const da = nt(ctx.next[cd], "Half-edge has no `next` reference");
 
-  const daOrigin = ctx.origin(da);
-  ctx.setOrigin(ac, daOrigin.x, daOrigin.y);
-  const bcOrigin = ctx.origin(bc);
-  ctx.setOrigin(ca, bcOrigin.x, bcOrigin.y);
+  const daX = ctx.origins[da * 2]!;
+  const daY = ctx.origins[da * 2 + 1]!;
+  ctx.setOrigin(ac, daX, daY);
+  const bcX = ctx.origins[bc * 2]!;
+  const bcY = ctx.origins[bc * 2 + 1]!;
+  ctx.setOrigin(ca, bcX, bcY);
 
   ctx.setNext(ac, bc);
   ctx.setNext(cd, ac);
@@ -243,9 +245,10 @@ function insertPointInEdge(
   const cd = nt(ctx.next[ac], "Half-edge has no `next` reference");
   const da = nt(ctx.next[cd], "Half-edge has no `next` reference");
 
-  const daOrigin = ctx.origin(da);
+  const daX = ctx.origins[da * 2]!;
+  const daY = ctx.origins[da * 2 + 1]!;
   const pd = ctx.create(px, py);
-  const dp = ctx.create(daOrigin.x, daOrigin.y);
+  const dp = ctx.create(daX, daY);
   ctx.setTwin(pd, dp);
   ctx.setTwin(dp, pd);
 
@@ -266,15 +269,17 @@ function insertPointInEdge(
     ctx.setOrigin(pa, px, py);
     const ab = nt(ctx.next[pa], "Half-edge has no `next` reference");
 
-    const cdOrigin = ctx.origin(cd);
-    const cp = ctx.create(cdOrigin.x, cdOrigin.y, -1, -1, ctx.isFixed(pa));
+    const cdX = ctx.origins[cd * 2]!;
+    const cdY = ctx.origins[cd * 2 + 1]!;
+    const cp = ctx.create(cdX, cdY, -1, -1, ctx.isFixed(pa));
     ctx.setTwin(pc, cp);
     ctx.setTwin(cp, pc);
 
     const bc = nt(ctx.next[ab], "Half-edge has no `next` reference");
-    const bcOrigin = ctx.origin(bc);
+    const bcX = ctx.origins[bc * 2]!;
+    const bcY = ctx.origins[bc * 2 + 1]!;
     const pb = ctx.create(px, py);
-    const bp = ctx.create(bcOrigin.x, bcOrigin.y);
+    const bp = ctx.create(bcX, bcY);
     ctx.setTwin(pb, bp);
     ctx.setTwin(bp, pb);
 
@@ -302,24 +307,27 @@ function insertPointInFace(
   const bc = nt(ctx.next[ab], "Half-edge has no `next` reference");
   const ca = nt(ctx.next[bc], "Half-edge has no `next` reference");
 
-  const a = ctx.origin(ab);
-  const b = ctx.origin(bc);
-  const c = ctx.origin(ca);
+  const ax = ctx.origins[ab * 2]!;
+  const ay = ctx.origins[ab * 2 + 1]!;
+  const bx = ctx.origins[bc * 2]!;
+  const by = ctx.origins[bc * 2 + 1]!;
+  const cx = ctx.origins[ca * 2]!;
+  const cy = ctx.origins[ca * 2 + 1]!;
 
   const pa = ctx.create(px, py);
-  const ap = ctx.create(a.x, a.y);
+  const ap = ctx.create(ax, ay);
   ctx.setTwin(pa, ap);
   ctx.setTwin(ap, pa);
   ctx.setNext(pa, ab);
 
   const pb = ctx.create(px, py);
-  const bp = ctx.create(b.x, b.y);
+  const bp = ctx.create(bx, by);
   ctx.setTwin(pb, bp);
   ctx.setTwin(bp, pb);
   ctx.setNext(pb, bc);
 
   const pc = ctx.create(px, py);
-  const cp = ctx.create(c.x, c.y);
+  const cp = ctx.create(cx, cy);
   ctx.setTwin(pc, cp);
   ctx.setTwin(cp, pc);
   ctx.setNext(pc, ca);
@@ -418,9 +426,12 @@ function hasIntersection(
   e2x: number,
   e2y: number,
 ): boolean {
-  const a = ctx.origin(edge);
-  const b = ctx.origin(nt(ctx.next[edge], "Half-edge has no `next` reference"));
-  return intersect(a.x, a.y, b.x, b.y, e1x, e1y, e2x, e2y) !== null;
+  const ax = ctx.origins[edge * 2]!;
+  const ay = ctx.origins[edge * 2 + 1]!;
+  const bIdx = nt(ctx.next[edge], "Half-edge has no `next` reference");
+  const bx = ctx.origins[bIdx * 2]!;
+  const by = ctx.origins[bIdx * 2 + 1]!;
+  return intersect(ax, ay, bx, by, e1x, e1y, e2x, e2y) !== null;
 }
 
 function findStartEdgeForIntersect(
@@ -521,11 +532,12 @@ export function getIntersecting(
     const second = nt(ctx.next[first], "Half-edge has no `next` reference");
 
     for (const edge of [first, second]) {
-      const a = ctx.origin(edge);
-      const b = ctx.origin(
-        nt(ctx.next[edge], "Half-edge has no `next` reference"),
-      );
-      const intersection = intersect(a.x, a.y, b.x, b.y, e1x, e1y, e2x, e2y);
+      const ax = ctx.origins[edge * 2]!;
+      const ay = ctx.origins[edge * 2 + 1]!;
+      const bIdx = nt(ctx.next[edge], "Half-edge has no `next` reference");
+      const bx = ctx.origins[bIdx * 2]!;
+      const by = ctx.origins[bIdx * 2 + 1]!;
+      const intersection = intersect(ax, ay, bx, by, e1x, e1y, e2x, e2y);
       if (intersection !== null) {
         const twin = ctx.getTwin(edge);
         assert(twin !== -1, "intersecting edge should have a twin");
@@ -892,8 +904,10 @@ function computeIsEar(
   }
   do {
     if (other !== aNode && other !== bNode && other !== cNode) {
-      const p = ctx.origin(boundary.valueOf(other));
-      if (inTriangle(p.x, p.y, ax, ay, bx, by, cx, cy)) {
+      const pEdge = boundary.valueOf(other);
+      const px = ctx.origins[pEdge * 2]!;
+      const py = ctx.origins[pEdge * 2 + 1]!;
+      if (inTriangle(px, py, ax, ay, bx, by, cx, cy)) {
         return false;
       }
     }
@@ -920,9 +934,12 @@ export function fillCavity(ctx: EdgeContext, boundary: GeometryRing): void {
     const bEdge = boundary.valueOf(bNode);
     const cEdge = boundary.valueOf(cNode);
 
-    const aPoint = ctx.origin(aEdge);
-    const bPoint = ctx.origin(bEdge);
-    const cPoint = ctx.origin(cEdge);
+    const ax = ctx.origins[aEdge * 2]!;
+    const ay = ctx.origins[aEdge * 2 + 1]!;
+    const bx = ctx.origins[bEdge * 2]!;
+    const by = ctx.origins[bEdge * 2 + 1]!;
+    const cx = ctx.origins[cEdge * 2]!;
+    const cy = ctx.origins[cEdge * 2 + 1]!;
 
     const isEar = computeIsEar(
       ctx,
@@ -930,17 +947,17 @@ export function fillCavity(ctx: EdgeContext, boundary: GeometryRing): void {
       aNode,
       bNode,
       cNode,
-      aPoint.x,
-      aPoint.y,
-      bPoint.x,
-      bPoint.y,
-      cPoint.x,
-      cPoint.y,
+      ax,
+      ay,
+      bx,
+      by,
+      cx,
+      cy,
     );
 
     if (isEar) {
-      const ca = ctx.create(cPoint.x, cPoint.y);
-      const ac = ctx.create(aPoint.x, aPoint.y);
+      const ca = ctx.create(cx, cy);
+      const ac = ctx.create(ax, ay);
       ctx.setTwin(ca, ac);
       ctx.setTwin(ac, ca);
 
