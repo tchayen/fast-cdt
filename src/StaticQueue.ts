@@ -1,42 +1,29 @@
 export class StaticQueue {
-  private readonly values: Int32Array;
+  private readonly values: number[];
   private begin = 0;
   private end = 0;
-  private length = 0;
 
   constructor(public readonly capacity: number) {
-    if (!Number.isInteger(capacity) || capacity <= 0) {
-      throw new RangeError("StaticQueue: capacity must be positive integer");
-    }
-    this.values = new Int32Array(capacity);
+    this.values = new Array(capacity);
   }
 
   push(value: number): void {
-    if (this.length === this.capacity) {
-      throw new RangeError("StaticQueue overflow");
-    }
-    this.values[this.end] = value;
-    this.end = (this.end + 1) % this.capacity;
-    this.length += 1;
+    this.values[this.end++] = value;
   }
 
   pop(): number | null {
-    if (this.length === 0) {
+    if (this.begin === this.end) {
       return null;
     }
-    const value = this.values[this.begin];
-    this.begin = (this.begin + 1) % this.capacity;
-    this.length -= 1;
-    return value ?? null;
+    return this.values[this.begin++] ?? null;
   }
 
   size(): number {
-    return this.length;
+    return this.end - this.begin;
   }
 
   reset(): void {
     this.begin = 0;
     this.end = 0;
-    this.length = 0;
   }
 }

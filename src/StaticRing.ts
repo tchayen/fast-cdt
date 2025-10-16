@@ -1,48 +1,23 @@
 import { nullthrows as nt } from "./nullthrows";
 
 export class StaticRing {
-  private readonly values: Int32Array;
-  private readonly next: Int32Array;
-  private readonly prev: Int32Array;
-  private readonly inUse: Uint8Array;
-  private readonly freeStack: Int32Array;
-  private freeTop: number;
+  private readonly values: number[];
+  private readonly next: number[];
+  private readonly prev: number[];
+  private allocated = 0;
 
   private firstIndex = -1;
   private lastIndex = -1;
   size = 0;
 
   constructor(public readonly capacity: number) {
-    if (!Number.isInteger(capacity) || capacity <= 0) {
-      throw new RangeError("StaticRing: capacity must be positive integer");
-    }
-    this.values = new Int32Array(capacity);
-    this.next = new Int32Array(capacity).fill(-1);
-    this.prev = new Int32Array(capacity).fill(-1);
-    this.inUse = new Uint8Array(capacity);
-    this.freeStack = new Int32Array(capacity);
-    this.freeTop = capacity;
-    for (let i = 0; i < capacity; i += 1) {
-      this.freeStack[i] = capacity - 1 - i;
-    }
+    this.values = new Array(capacity);
+    this.next = new Array(capacity);
+    this.prev = new Array(capacity);
   }
 
   private allocNode(): number {
-    if (this.freeTop === 0) {
-      throw new RangeError("StaticRing overflow");
-    }
-    const index = nt(this.freeStack[--this.freeTop]);
-    this.inUse[index] = 1;
-    this.next[index] = -1;
-    this.prev[index] = -1;
-    return index;
-  }
-
-  private freeNode(index: number): void {
-    this.inUse[index] = 0;
-    this.next[index] = -1;
-    this.prev[index] = -1;
-    this.freeStack[this.freeTop++] = index;
+    return this.allocated++;
   }
 
   get first(): number {
@@ -121,7 +96,6 @@ export class StaticRing {
     if (this.size === 1) {
       this.firstIndex = -1;
       this.lastIndex = -1;
-      this.freeNode(nodeIndex);
       this.size = 0;
       return;
     }
@@ -139,7 +113,6 @@ export class StaticRing {
       this.lastIndex = prevIndex;
     }
 
-    this.freeNode(nodeIndex);
     this.size -= 1;
   }
 
@@ -181,14 +154,6 @@ export class StaticRing {
     this.size = 0;
     this.firstIndex = -1;
     this.lastIndex = -1;
-    for (let i = 0; i < this.values.length; i += 1) {
-      if (this.inUse[i]) {
-        this.inUse[i] = 0;
-        this.next[i] = -1;
-        this.prev[i] = -1;
-      }
-      this.freeStack[i] = this.values.length - 1 - i;
-    }
-    this.freeTop = this.values.length;
+    this.allocated = 0;
   }
 }
