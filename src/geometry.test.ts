@@ -80,7 +80,7 @@ describe("geometry basics", () => {
     const edges = new EdgeContext(32);
     square(edges, 4, 4);
     const any = edges.any();
-    const point = edges.origin(any);
+    const point = { x: edges.originXAt(any), y: edges.originYAt(any) };
     const startEdge = locatePoint(edges, point.x, point.y, any);
     expect(startEdge).not.toBeNull();
     const shared = findSharedEdge(edges, startEdge!, point.x, point.y, 4, 4);
@@ -94,7 +94,7 @@ describe("geometry basics", () => {
     const p = P(40, 40);
     insertPoint(edges, 40, 40);
     const withPoint = [...edges.iterator()].some((edge) => {
-      const origin = edges.origin(edge);
+      const origin = { x: edges.originXAt(edge), y: edges.originYAt(edge) };
       return Math.abs(origin.x - p.x) < 1e-6 && Math.abs(origin.y - p.y) < 1e-6;
     });
     expect(withPoint).toBe(true);
@@ -106,7 +106,7 @@ describe("geometry basics", () => {
     const onEdge = P(50, 0);
     insertPoint(edges, 50, 0);
     const onEdgeExists = [...edges.iterator()].some((edge) => {
-      const origin = edges.origin(edge);
+      const origin = { x: edges.originXAt(edge), y: edges.originYAt(edge) };
       return (
         Math.abs(origin.x - onEdge.x) < 1e-6 &&
         Math.abs(origin.y - onEdge.y) < 1e-6
@@ -158,8 +158,11 @@ describe("geometry advanced functions", () => {
 
     const popped = queue2.pop();
     expect(popped).not.toBeNull();
-    const origin = edges.origin(popped!);
-    const dest = edges.origin(edges.getNext(popped!));
+    const origin = { x: edges.originXAt(popped!), y: edges.originYAt(popped!) };
+    const dest = {
+      x: edges.originXAt(edges.getNext(popped!)),
+      y: edges.originYAt(edges.getNext(popped!)),
+    };
     expect(pointsEqual(origin.x, origin.y, 10, 70)).toBe(true);
     expect(pointsEqual(dest.x, dest.y, 30, 40)).toBe(true);
     expect(queue2.pop()).toBeNull();
@@ -192,7 +195,10 @@ describe("geometry advanced functions", () => {
         const edgeIdx = ring.valueOf(node);
         const nextNode = ring.nextOf(node);
         const nextIdx = ring.valueOf(nextNode);
-        actual.push([edges.origin(edgeIdx), edges.origin(nextIdx)]);
+        actual.push([
+          { x: edges.originXAt(edgeIdx), y: edges.originYAt(edgeIdx) },
+          { x: edges.originXAt(nextIdx), y: edges.originYAt(nextIdx) },
+        ]);
         node = nextNode;
       } while (node !== ring.first && actual.length < expected.length);
     }

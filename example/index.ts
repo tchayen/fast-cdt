@@ -70,7 +70,8 @@ function exportEdges(): HalfEdge[] {
       continue;
     }
 
-    const origin = edges.origin(i);
+    const originX = edges.origins[i * 2]!;
+    const originY = edges.origins[i * 2 + 1]!;
     const next = edges.getNext(i);
     const twin = edges.getTwin(i);
     const fixed = edges.isFixed(i);
@@ -80,8 +81,8 @@ function exportEdges(): HalfEdge[] {
       index: i,
       next,
       twin,
-      x: origin.x,
-      y: origin.y,
+      x: originX,
+      y: originY,
     });
   }
 
