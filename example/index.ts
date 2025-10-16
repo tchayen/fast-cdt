@@ -21,7 +21,7 @@ const presets = [
   { fn: tinySquare, name: "Tiny Square" },
 ];
 
-const edges = new EdgeContext(16_000);
+const edges = new EdgeContext(64_000);
 
 function loadPreset(index: number): void {
   const preset = presets[index];

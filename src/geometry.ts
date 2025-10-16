@@ -975,21 +975,3 @@ export function removePoint(ctx: EdgeContext, px: number, py: number): void {
   removeCollinear(ctx, boundaryRing);
   fillCavity(ctx, boundaryRing);
 }
-
-export function validate(ctx: EdgeContext): void {
-  for (const edge of ctx.iterator()) {
-    const next1 = ctx.getNext(edge);
-    const next2 = next1 === -1 ? -1 : ctx.getNext(next1);
-    const next3 = next2 === -1 ? -1 : ctx.getNext(next2);
-    if (next3 !== edge) {
-      throw new Error("Edge does not form triangle");
-    }
-    const twin = ctx.getTwin(edge);
-    if (twin !== -1 && ctx.getTwin(twin) !== edge) {
-      throw new Error("Twin mismatch");
-    }
-    if (twin !== -1 && ctx.isFixed(edge) && !ctx.isFixed(twin)) {
-      throw new Error("Fixed edge mismatch");
-    }
-  }
-}

@@ -1,18 +1,23 @@
 /* eslint no-console: 0 */
 
 import { EdgeContext } from "./EdgeContext";
-import { playground } from "./fixtures";
+// eslint-disable-next-line import-x/no-namespace
+import * as fixtures from "./fixtures";
 
-export function runBenchmark(): void {
-  const edges = new EdgeContext(20_000);
-  const iterations = 30_000;
+export function runBenchmark(
+  fixture: keyof typeof fixtures,
+  iterations: number,
+  capacity: number,
+): void {
+  const edges = new EdgeContext(capacity);
   const times: number[] = [];
+  const fn = fixtures[fixture];
 
-  console.log(`Running playground ${iterations} times...`);
+  console.log(`Running '${fixture}' ${iterations} times...`);
 
   for (let i = 0; i < iterations; i++) {
     const start = performance.now();
-    playground(edges);
+    fn(edges);
     const end = performance.now();
     times.push(end - start);
   }
@@ -36,4 +41,5 @@ export function runBenchmark(): void {
   console.log(`Final edge count: ${edges.count()}`);
 }
 
-runBenchmark();
+// runBenchmark("benchmarkGrid", 64_000);
+runBenchmark("playground", 30_000, 3200);

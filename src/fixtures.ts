@@ -212,11 +212,41 @@ export function grid(edges: EdgeContext): void {
   }
   square(edges, 100, 100);
 
-  const a = 50; // Restored original size
+  const a = 50;
   for (let i = 0; i < a; i += 1) {
     for (let j = 0; j < a; j += 1) {
       const x = i;
       const y = j;
+
+      insertPoint(edges, x, y);
+      insertPoint(edges, x + 1, y);
+      insertPoint(edges, x + 1, y + 1);
+      insertPoint(edges, x, y + 1);
+
+      enforceEdge(edges, x, y, x + 1, y);
+      enforceEdge(edges, x + 1, y, x + 1, y + 1);
+      enforceEdge(edges, x + 1, y + 1, x, y + 1);
+      enforceEdge(edges, x, y + 1, x, y);
+    }
+  }
+}
+
+export function benchmarkGrid(edges: EdgeContext): void {
+  edges.reset();
+  for (let i = 0; i < edges.count(); i += 1) {
+    edges.setFixed(i, false);
+  }
+  square(edges, 100, 100);
+
+  const a = 100;
+  for (let i = 0; i < a; i += 1) {
+    for (let j = 0; j < a; j += 1) {
+      const x = i;
+      const y = j;
+
+      if (Math.random() > 0.3) {
+        continue;
+      }
 
       insertPoint(edges, x, y);
       insertPoint(edges, x + 1, y);
