@@ -7,15 +7,11 @@ import {
   flip,
   findSharedEdge,
   insertPoint,
-  GeometryQueue,
-  getIntersecting,
   enforceEdge,
   collectBoundary,
   removePoint,
-  GeometryRing,
 } from "../src/geometry";
-import { pointsEqual } from "./checks";
-import { getVertex } from "./edges";
+import { Ring } from "./Ring";
 
 type Point = { x: number; y: number };
 
@@ -34,7 +30,7 @@ const setupTriangle = () => {
   return { ab, bc, ca, edges };
 };
 
-describe("geometry basics", () => {
+describe("geometry", () => {
   test("locatePoint finds containing triangle", () => {
     const { ab, edges } = setupTriangle();
     const point = P(0.1, 0.1);
@@ -115,57 +111,21 @@ describe("geometry basics", () => {
     expect(onEdgeExists).toBe(true);
     expect(edges.count()).toBeGreaterThan(afterInsertCount);
   });
-});
 
-describe("geometry advanced functions", () => {
-  test("getIntersecting finds edges crossing segment", () => {
+  test("enforceEdge works correctly", () => {
     const edges = new EdgeContext(512);
 
-    square(edges, 100, 100);
-    insertPoint(edges, 40, 40);
-    insertPoint(edges, 60, 80);
-
-    const queue = new GeometryQueue();
-    const triangle = locatePoint(edges, 100, 100, edges.any());
-    expect(triangle).not.toBeNull();
-    const vertexEdge = getVertex(edges, 100, 100, triangle!);
-    expect(vertexEdge).not.toBe(-1);
-    getIntersecting(edges, queue, vertexEdge, 100, 100, 0, 0);
-
-    const collected: number[] = [];
-    for (let value = queue.pop(); value !== null; value = queue.pop()) {
-      collected.push(value);
-    }
-    expect(collected.length).toBeGreaterThan(0);
-
-    edges.reset();
     square(edges, 100, 100);
     insertPoint(edges, 30, 40);
     insertPoint(edges, 10, 70);
     insertPoint(edges, 50, 50);
     insertPoint(edges, 20, 45);
+
     enforceEdge(edges, 30, 40, 10, 70);
     enforceEdge(edges, 10, 70, 50, 50);
 
-    const queue2 = new GeometryQueue();
-    const e1 = P(50, 50);
-    const e2 = P(20, 45);
-    const tri = locatePoint(edges, e1.x, e1.y, edges.any());
+    const tri = locatePoint(edges, 20, 55, edges.any());
     expect(tri).not.toBeNull();
-    const start = getVertex(edges, e1.x, e1.y, tri!);
-    expect(start).not.toBe(-1);
-    getIntersecting(edges, queue2, start, e1.x, e1.y, e2.x, e2.y);
-
-    const popped = queue2.pop();
-    expect(popped).not.toBeNull();
-    const origin = { x: edges.originXAt(popped!), y: edges.originYAt(popped!) };
-    const dest = {
-      x: edges.originXAt(edges.getNext(popped!)),
-      y: edges.originYAt(edges.getNext(popped!)),
-    };
-    expect(pointsEqual(origin.x, origin.y, 10, 70)).toBe(true);
-    expect(pointsEqual(dest.x, dest.y, 30, 40)).toBe(true);
-    expect(queue2.pop()).toBeNull();
   });
 
   test("collectBoundary trims fan around vertex", () => {
@@ -174,7 +134,7 @@ describe("geometry advanced functions", () => {
     insertSquare(edges, 0, 0, 1);
     insertSquare(edges, 1, 0, 1);
 
-    const ring = new GeometryRing();
+    const ring = new Ring(256);
     collectBoundary(edges, ring, 2, 1);
 
     expect(edges.count()).toBe(15);

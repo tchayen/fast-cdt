@@ -9,13 +9,24 @@ import {
   EPS,
 } from "./checks";
 import { EdgeContext } from "./EdgeContext";
-import { StaticStack } from "./StaticStack";
-import { StaticQueue } from "./StaticQueue";
-import { StaticRing } from "./StaticRing";
+import { Ring } from "./Ring";
 import { isConvexQuad, isDelaunay, getVertex } from "./edges";
 
 const STACK_LIMIT = 128;
 const QUEUE_LIMIT = 256;
+
+let flipStackTop = 0;
+let insertStackTop = 0;
+let destroyStackTop = 0;
+const flipStack = new Array<number>(STACK_LIMIT);
+const insertStack = new Array<number>(STACK_LIMIT);
+const destroyStack = new Array<number>(STACK_LIMIT);
+
+let queueBegin = 0;
+let queueEnd = 0;
+const queue = new Array<number>(QUEUE_LIMIT);
+
+const boundaryRing = new Ring(256);
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {
@@ -145,13 +156,16 @@ export function flip(ctx: EdgeContext, edge: number): void {
   ctx.setNext(da, ab);
 }
 
-export function flipEdges(ctx: EdgeContext, stack: StaticStack): void {
+export function flipEdges(
+  ctx: EdgeContext,
+  stackValues: number[],
+  stackTop: { value: number },
+): void {
   while (true) {
-    const e = stack.pop();
-    if (e === null) {
+    if (stackTop.value === 0) {
       break;
     }
-    const edge = e;
+    const edge = stackValues[--stackTop.value]!;
     const twin = validOrNull(ctx.getTwin(edge));
     if (twin === null) {
       continue;
@@ -165,8 +179,8 @@ export function flipEdges(ctx: EdgeContext, stack: StaticStack): void {
 
     const fNext = nt(ctx.next[twin], "Half-edge has no `next` reference");
     const fNextNext = nt(ctx.next[fNext], "Half-edge has no `next` reference");
-    stack.push(fNext);
-    stack.push(fNextNext);
+    stackValues[stackTop.value++] = fNext;
+    stackValues[stackTop.value++] = fNextNext;
     flip(ctx, edge);
   }
 }
@@ -260,9 +274,9 @@ function insertPointInEdge(
   ctx.setNext(dp, pc);
   ctx.setNext(cd, dp);
 
-  insertStack.reset();
-  insertStack.push(cd);
-  insertStack.push(da);
+  insertStackTop = 0;
+  insertStack[insertStackTop++] = cd;
+  insertStack[insertStackTop++] = da;
 
   const pa = validOrNull(ctx.getTwin(ac));
   if (pa !== null) {
@@ -290,11 +304,12 @@ function insertPointInEdge(
     ctx.setNext(pb, bc);
     ctx.setNext(bc, cp);
 
-    insertStack.push(ab);
-    insertStack.push(bc);
+    insertStack[insertStackTop++] = ab;
+    insertStack[insertStackTop++] = bc;
   }
 
-  flipEdges(ctx, insertStack);
+  flipEdges(ctx, insertStack, { value: insertStackTop });
+  insertStackTop = 0;
 }
 
 function insertPointInFace(
@@ -340,11 +355,12 @@ function insertPointInFace(
   ctx.setNext(bc, cp);
   ctx.setNext(ca, ap);
 
-  insertStack.reset();
-  insertStack.push(ab);
-  insertStack.push(bc);
-  insertStack.push(ca);
-  flipEdges(ctx, insertStack);
+  insertStackTop = 0;
+  insertStack[insertStackTop++] = ab;
+  insertStack[insertStackTop++] = bc;
+  insertStack[insertStackTop++] = ca;
+  flipEdges(ctx, insertStack, { value: insertStackTop });
+  insertStackTop = 0;
 }
 
 export function insertPoint(ctx: EdgeContext, px: number, py: number): void {
@@ -384,31 +400,6 @@ export function insertPoint(ctx: EdgeContext, px: number, py: number): void {
   }
 }
 
-export class GeometryQueue extends StaticQueue {
-  constructor() {
-    super(QUEUE_LIMIT);
-  }
-}
-
-export class GeometryStack extends StaticStack {
-  constructor() {
-    super(STACK_LIMIT);
-  }
-}
-
-export class GeometryRing extends StaticRing {
-  constructor() {
-    super(QUEUE_LIMIT);
-  }
-}
-
-// Reusable static instances to avoid allocation overhead
-const flipStack = new GeometryStack();
-const intersectQueue = new GeometryQueue();
-const boundaryRing = new GeometryRing();
-const insertStack = new GeometryStack();
-const destroyStack = new GeometryStack();
-
 function edgeLoopEdges(
   ctx: EdgeContext,
   edge: number,
@@ -442,7 +433,7 @@ function findStartEdgeForIntersect(
   e2x: number,
   e2y: number,
 ): number {
-  const LIMIT = 20;
+  const LIMIT = 32;
   const start = validOrError(
     getVertex(ctx, e1x, e1y, inTriangleEdge),
     "E1NotAVertex",
@@ -505,14 +496,17 @@ function findStartEdgeForIntersect(
 
 export function getIntersecting(
   ctx: EdgeContext,
-  queue: GeometryQueue,
+  queueValues: number[],
+  queueBegin: number,
+  queueEnd: number,
   seed: number,
   e1x: number,
   e1y: number,
   e2x: number,
   e2y: number,
 ): void {
-  queue.reset();
+  queueBegin = 0;
+  queueEnd = 0;
   const inTriangleEdge = locatePoint(ctx, e1x, e1y, seed);
   if (inTriangleEdge === null) {
     throw new Error("E1NotInAnyTriangle");
@@ -541,7 +535,7 @@ export function getIntersecting(
       if (intersection !== null) {
         const twin = ctx.getTwin(edge);
         assert(twin !== -1, "intersecting edge should have a twin");
-        queue.push(edge);
+        queue[queueEnd++] = edge;
         current = twin;
       }
     }
@@ -639,7 +633,8 @@ export function enforceEdge(
   e2x: number,
   e2y: number,
 ): void {
-  intersectQueue.reset();
+  queueBegin = 0;
+  queueEnd = 0;
   const anyEdge = ctx.any();
   const p = locatePoint(ctx, e1x, e1y, anyEdge);
   if (p === null) {
@@ -659,14 +654,13 @@ export function enforceEdge(
     }
   }
 
-  getIntersecting(ctx, intersectQueue, p, e1x, e1y, e2x, e2y);
+  getIntersecting(ctx, queue, queueBegin, queueEnd, p, e1x, e1y, e2x, e2y);
 
   while (true) {
-    const popped = intersectQueue.pop();
-    if (popped === null) {
+    if (queueBegin === queueEnd) {
       break;
     }
-    const edge = popped;
+    const edge = queue[queueBegin++]!;
 
     if (ctx.isFixed(edge)) {
       const ax = ctx.origins[edge * 2]!;
@@ -683,7 +677,7 @@ export function enforceEdge(
     }
 
     if (!isConvexQuad(ctx, edge)) {
-      intersectQueue.push(edge);
+      queue[queueEnd++] = edge;
       continue;
     }
 
@@ -706,7 +700,7 @@ export function enforceEdge(
     }
 
     if (doCross(e1x, e1y, e2x, e2y, originX, originY, destX, destY)) {
-      intersectQueue.push(edge);
+      queue[queueEnd++] = edge;
     }
   }
 }
@@ -715,7 +709,7 @@ function isBoundaryEdge(ctx: EdgeContext, edge: number): boolean {
   return ctx.getTwin(edge) === -1;
 }
 
-function ringContains(ring: GeometryRing, edge: number): boolean {
+function ringContains(ring: Ring, edge: number): boolean {
   const first = validOrNull(ring.first);
   if (first === null) {
     return false;
@@ -733,7 +727,7 @@ function ringContains(ring: GeometryRing, edge: number): boolean {
 function destroyEdgeIfInternal(
   ctx: EdgeContext,
   edge: number,
-  boundary: GeometryRing,
+  boundary: Ring,
 ): void {
   if (!isBoundaryEdge(ctx, edge) && !ringContains(boundary, edge)) {
     ctx.destroy(edge);
@@ -742,7 +736,7 @@ function destroyEdgeIfInternal(
 
 export function collectBoundary(
   ctx: EdgeContext,
-  boundary: GeometryRing,
+  boundary: Ring,
   px: number,
   py: number,
 ): void {
@@ -762,14 +756,17 @@ export function collectBoundary(
   const LIMIT = 128;
   let i = 0;
   let continueCW = false;
-  destroyStack.reset();
+  destroyStackTop = 0;
 
   while (i < LIMIT) {
     const next = nt(ctx.next[current], "Half-edge has no `next` reference");
     boundary.append(next);
 
-    destroyStack.push(current);
-    destroyStack.push(nt(ctx.next[next], "Half-edge has no `next` reference"));
+    destroyStack[destroyStackTop++] = current;
+    destroyStack[destroyStackTop++] = nt(
+      ctx.next[next],
+      "Half-edge has no `next` reference",
+    );
 
     const twin = validOrNull(
       ctx.getTwin(nt(ctx.next[next], "Half-edge has no `next` reference")),
@@ -802,9 +799,10 @@ export function collectBoundary(
       );
       boundary.prepend(next);
 
-      destroyStack.push(currentCW);
-      destroyStack.push(
-        nt(ctx.next[currentCW], "Half-edge has no `next` reference"),
+      destroyStack[destroyStackTop++] = currentCW;
+      destroyStack[destroyStackTop++] = nt(
+        ctx.next[currentCW],
+        "Half-edge has no `next` reference",
       );
 
       const nextTwin = validOrNull(
@@ -822,19 +820,13 @@ export function collectBoundary(
     }
   }
 
-  while (true) {
-    const edge = destroyStack.pop();
-    if (edge === null) {
-      break;
-    }
+  while (destroyStackTop > 0) {
+    const edge = destroyStack[--destroyStackTop]!;
     destroyEdgeIfInternal(ctx, edge, boundary);
   }
 }
 
-export function removeCollinear(
-  ctx: EdgeContext,
-  boundary: GeometryRing,
-): void {
+export function removeCollinear(ctx: EdgeContext, boundary: Ring): void {
   let aNode = validOrNull(boundary.first);
   if (aNode === null) {
     return;
@@ -884,7 +876,7 @@ export function removeCollinear(
 
 function computeIsEar(
   ctx: EdgeContext,
-  boundary: GeometryRing,
+  boundary: Ring,
   aNode: number,
   bNode: number,
   cNode: number,
@@ -917,12 +909,12 @@ function computeIsEar(
   return true;
 }
 
-export function fillCavity(ctx: EdgeContext, boundary: GeometryRing): void {
+export function fillCavity(ctx: EdgeContext, boundary: Ring): void {
   assert(
     boundary.length() >= 3,
     "fillCavity expects at least three boundary edges",
   );
-  flipStack.reset();
+  flipStackTop = 0;
   let current = boundary.first;
 
   while (boundary.length() > 3 && current !== -1) {
@@ -965,8 +957,8 @@ export function fillCavity(ctx: EdgeContext, boundary: GeometryRing): void {
       ctx.setNext(bEdge, ca);
       ctx.setNext(ca, aEdge);
 
-      flipStack.push(aEdge);
-      flipStack.push(bEdge);
+      flipStack[flipStackTop++] = aEdge;
+      flipStack[flipStackTop++] = bEdge;
 
       current = boundary.insertAfter(bNode, ac);
       boundary.remove(aNode);
@@ -988,7 +980,8 @@ export function fillCavity(ctx: EdgeContext, boundary: GeometryRing): void {
     ctx.setNext(cEdge, aEdge);
   }
 
-  flipEdges(ctx, flipStack);
+  flipEdges(ctx, flipStack, { value: flipStackTop });
+  flipStackTop = 0;
 }
 
 export function removePoint(ctx: EdgeContext, px: number, py: number): void {

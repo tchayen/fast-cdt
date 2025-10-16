@@ -1,6 +1,6 @@
 import { nullthrows as nt } from "./nullthrows";
 
-export class StaticRing {
+export class Ring {
   private readonly values: number[];
   private readonly next: number[];
   private readonly prev: number[];
