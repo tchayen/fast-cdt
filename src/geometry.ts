@@ -385,15 +385,6 @@ export function insertPoint(ctx: EdgeContext, px: number, py: number): void {
   }
 }
 
-function edgeLoopEdges(
-  ctx: EdgeContext,
-  edge: number,
-): [number, number, number] {
-  const b = nt(ctx.next[edge], "Half-edge has no `next` reference");
-  const c = nt(ctx.next[b], "Half-edge has no `next` reference");
-  return [edge, b, c];
-}
-
 function hasIntersection(
   ctx: EdgeContext,
   edge: number,
@@ -427,7 +418,9 @@ function findStartEdgeForIntersect(
   let current = start;
   let i = 0;
   while (i < LIMIT) {
-    const [eA, eB, eC] = edgeLoopEdges(ctx, current);
+    const eA = current;
+    const eB = nt(ctx.next[current], "Half-edge has no `next` reference");
+    const eC = nt(ctx.next[eB], "Half-edge has no `next` reference");
     if (
       hasIntersection(ctx, eA, e1x, e1y, e2x, e2y) ||
       hasIntersection(ctx, eB, e1x, e1y, e2x, e2y) ||
@@ -449,7 +442,9 @@ function findStartEdgeForIntersect(
 
   current = start;
   while (i < LIMIT) {
-    const [eA, eB, eC] = edgeLoopEdges(ctx, current);
+    const eA = current;
+    const eB = nt(ctx.next[current], "Half-edge has no `next` reference");
+    const eC = nt(ctx.next[eB], "Half-edge has no `next` reference");
     if (
       hasIntersection(ctx, eA, e1x, e1y, e2x, e2y) ||
       hasIntersection(ctx, eB, e1x, e1y, e2x, e2y) ||
@@ -546,7 +541,9 @@ function markCrossing(
 
   while (i < LIMIT) {
     i += 1;
-    const [e0, e1Idx, e2Idx] = edgeLoopEdges(ctx, current);
+    const e0 = current;
+    const e1Idx = nt(ctx.next[current], "Half-edge has no `next` reference");
+    const e2Idx = nt(ctx.next[e1Idx], "Half-edge has no `next` reference");
     for (const candidate of [e0, e1Idx, e2Idx]) {
       const ax = ctx.origins[candidate * 2]!;
       const ay = ctx.origins[candidate * 2 + 1]!;
@@ -579,7 +576,9 @@ function markCrossing(
   i = 0;
   while (i < LIMIT) {
     i += 1;
-    const [e0, e1Idx, e2Idx] = edgeLoopEdges(ctx, current);
+    const e0 = current;
+    const e1Idx = nt(ctx.next[current], "Half-edge has no `next` reference");
+    const e2Idx = nt(ctx.next[e1Idx], "Half-edge has no `next` reference");
     for (const candidate of [e0, e1Idx, e2Idx]) {
       const ax = ctx.origins[candidate * 2]!;
       const ay = ctx.origins[candidate * 2 + 1]!;
