@@ -18,31 +18,18 @@ const QUEUE_LIMIT = 256;
 let flipStackTop = 0;
 let insertStackTop = 0;
 let destroyStackTop = 0;
+let queueBegin = 0;
+let queueEnd = 0;
 const flipStack = new Array<number>(STACK_LIMIT);
 const insertStack = new Array<number>(STACK_LIMIT);
 const destroyStack = new Array<number>(STACK_LIMIT);
-
-let queueBegin = 0;
-let queueEnd = 0;
 const queue = new Array<number>(QUEUE_LIMIT);
-
 const boundaryRing = new Ring(256);
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {
     throw new Error(message);
   }
-}
-
-function validOrError(value: number, message?: string): number {
-  if (value === -1) {
-    throw new Error(message);
-  }
-  return value;
-}
-
-function validOrNull(value: number): number | null {
-  return value === -1 ? null : value;
 }
 
 export function locatePoint(
@@ -59,17 +46,17 @@ export function locatePoint(
     const ax = ctx.origins[current * 2]!;
     const ay = ctx.origins[current * 2 + 1]!;
 
-    const bIdx = validOrError(
-      ctx.next[current]!,
-      "Half-edge has no `next` reference",
-    );
+    const bIdx = ctx.next[current]!;
+    if (bIdx === -1) {
+      throw new Error("Half-edge has no `next` reference");
+    }
     const bx = ctx.origins[bIdx * 2]!;
     const by = ctx.origins[bIdx * 2 + 1]!;
 
-    const cIdx = validOrError(
-      ctx.next[bIdx]!,
-      "Half-edge has no `next` reference",
-    );
+    const cIdx = ctx.next[bIdx]!;
+    if (cIdx === -1) {
+      throw new Error("Half-edge has no `next` reference");
+    }
     const cx = ctx.origins[cIdx * 2]!;
     const cy = ctx.origins[cIdx * 2 + 1]!;
 
@@ -82,8 +69,8 @@ export function locatePoint(
     // Check edge bIdx
     const orientB = orient2D(bx, by, cx, cy, px, py);
     if (orientB < 0) {
-      const twin = validOrNull(ctx.twin[bIdx]!);
-      if (twin === null) {
+      const twin = ctx.twin[bIdx]!;
+      if (twin === -1) {
         return null;
       }
       nextEdge = twin;
@@ -91,8 +78,8 @@ export function locatePoint(
       // Check edge cIdx
       const orientC = orient2D(cx, cy, ax, ay, px, py);
       if (orientC < 0) {
-        const twin = validOrNull(ctx.twin[cIdx]!);
-        if (twin === null) {
+        const twin = ctx.twin[cIdx]!;
+        if (twin === -1) {
           return null;
         }
         nextEdge = twin;
@@ -166,8 +153,8 @@ export function flipEdges(
       break;
     }
     const edge = stackValues[--stackTop.value]!;
-    const twin = validOrNull(ctx.getTwin(edge));
-    if (twin === null) {
+    const twin = ctx.getTwin(edge);
+    if (twin === -1) {
       continue;
     }
     if (ctx.isFixed(edge) || ctx.isFixed(twin)) {
@@ -209,8 +196,8 @@ export function findSharedEdge(
     if (pointsEqual(ax, ay, e1x, e1y) && pointsEqual(bx, by, e2x, e2y)) {
       return current;
     }
-    const twin = validOrNull(ctx.getTwin(current));
-    if (twin === null) {
+    const twin = ctx.getTwin(current);
+    if (twin === -1) {
       break;
     }
     current = nt(ctx.next[twin], "Half-edge has no `next` reference");
@@ -230,15 +217,13 @@ export function findSharedEdge(
     if (pointsEqual(ax, ay, e1x, e1y) && pointsEqual(bx, by, e2x, e2y)) {
       return current;
     }
-    const next = validOrNull(
-      ctx.getTwin(
-        nt(
-          ctx.next[nt(ctx.next[current], "Half-edge has no `next` reference")],
-          "Half-edge has no `next` reference",
-        ),
+    const next = ctx.getTwin(
+      nt(
+        ctx.next[nt(ctx.next[current], "Half-edge has no `next` reference")],
+        "Half-edge has no `next` reference",
       ),
     );
-    if (next === null) {
+    if (next === -1) {
       break;
     }
     current = next;
@@ -278,8 +263,8 @@ function insertPointInEdge(
   insertStack[insertStackTop++] = cd;
   insertStack[insertStackTop++] = da;
 
-  const pa = validOrNull(ctx.getTwin(ac));
-  if (pa !== null) {
+  const pa = ctx.getTwin(ac);
+  if (pa !== -1) {
     ctx.setOrigin(pa, px, py);
     const ab = nt(ctx.next[pa], "Half-edge has no `next` reference");
 
@@ -434,10 +419,10 @@ function findStartEdgeForIntersect(
   e2y: number,
 ): number {
   const LIMIT = 32;
-  const start = validOrError(
-    getVertex(ctx, e1x, e1y, inTriangleEdge),
-    "E1NotAVertex",
-  );
+  const start = getVertex(ctx, e1x, e1y, inTriangleEdge);
+  if (start === -1) {
+    throw new Error("E1NotAVertex");
+  }
 
   let current = start;
   let i = 0;
@@ -451,8 +436,8 @@ function findStartEdgeForIntersect(
       return current;
     }
 
-    const twin = validOrNull(ctx.getTwin(current));
-    if (twin === null) {
+    const twin = ctx.getTwin(current);
+    if (twin === -1) {
       break;
     }
     current = nt(ctx.next[twin], "Half-edge has no `next` reference");
@@ -473,15 +458,13 @@ function findStartEdgeForIntersect(
       return current;
     }
 
-    const next = validOrNull(
-      ctx.getTwin(
-        nt(
-          ctx.next[nt(ctx.next[current], "Half-edge has no `next` reference")],
-          "Half-edge has no `next` reference",
-        ),
+    const next = ctx.getTwin(
+      nt(
+        ctx.next[nt(ctx.next[current], "Half-edge has no `next` reference")],
+        "Half-edge has no `next` reference",
       ),
     );
-    if (next === null) {
+    if (next === -1) {
       break;
     }
     current = next;
@@ -513,10 +496,17 @@ export function getIntersecting(
   }
 
   const LIMIT = 20;
-  const startEdge = validOrError(
-    findStartEdgeForIntersect(ctx, inTriangleEdge, e1x, e1y, e2x, e2y),
-    "NoSuitableStartEdge",
+  const startEdge = findStartEdgeForIntersect(
+    ctx,
+    inTriangleEdge,
+    e1x,
+    e1y,
+    e2x,
+    e2y,
   );
+  if (startEdge === -1) {
+    throw new Error("NoSuitableStartEdge");
+  }
 
   let current = startEdge;
   let iterations = 0;
@@ -568,15 +558,15 @@ function markCrossing(
         onSegment(bx, by, e1x, e1y, e2x, e2y)
       ) {
         ctx.setFixed(candidate, true);
-        const twin = validOrNull(ctx.getTwin(candidate));
-        if (twin !== null) {
+        const twin = ctx.getTwin(candidate);
+        if (twin !== -1) {
           ctx.setFixed(twin, true);
         }
       }
     }
 
-    const twin = validOrNull(ctx.getTwin(current));
-    if (twin === null) {
+    const twin = ctx.getTwin(current);
+    if (twin === -1) {
       break;
     }
     current = nt(ctx.next[twin], "Half-edge has no `next` reference");
@@ -601,22 +591,20 @@ function markCrossing(
         onSegment(bx, by, e1x, e1y, e2x, e2y)
       ) {
         ctx.setFixed(candidate, true);
-        const twin = validOrNull(ctx.getTwin(candidate));
-        if (twin !== null) {
+        const twin = ctx.getTwin(candidate);
+        if (twin !== -1) {
           ctx.setFixed(twin, true);
         }
       }
     }
 
-    const next = validOrNull(
-      ctx.getTwin(
-        nt(
-          ctx.next[nt(ctx.next[current], "Half-edge has no `next` reference")],
-          "Half-edge has no `next` reference",
-        ),
+    const next = ctx.getTwin(
+      nt(
+        ctx.next[nt(ctx.next[current], "Half-edge has no `next` reference")],
+        "Half-edge has no `next` reference",
       ),
     );
-    if (next === null) {
+    if (next === -1) {
       break;
     }
     current = next;
@@ -641,13 +629,13 @@ export function enforceEdge(
     throw new Error("EdgeNotFound");
   }
 
-  const vertex = validOrNull(getVertex(ctx, e1x, e1y, p));
-  if (vertex !== null) {
-    const shared = validOrNull(findSharedEdge(ctx, p, e1x, e1y, e2x, e2y));
-    if (shared !== null) {
+  const vertex = getVertex(ctx, e1x, e1y, p);
+  if (vertex !== -1) {
+    const shared = findSharedEdge(ctx, p, e1x, e1y, e2x, e2y);
+    if (shared !== -1) {
       ctx.setFixed(shared, true);
-      const twinShared = validOrNull(ctx.getTwin(shared));
-      if (twinShared !== null) {
+      const twinShared = ctx.getTwin(shared);
+      if (twinShared !== -1) {
         ctx.setFixed(twinShared, true);
       }
       return;
@@ -710,8 +698,8 @@ function isBoundaryEdge(ctx: EdgeContext, edge: number): boolean {
 }
 
 function ringContains(ring: Ring, edge: number): boolean {
-  const first = validOrNull(ring.first);
-  if (first === null) {
+  const first = ring.first;
+  if (first === -1) {
     return false;
   }
   let node = first;
@@ -747,10 +735,10 @@ export function collectBoundary(
     throw new Error("EdgeNotFound");
   }
 
-  const startVertex = validOrError(
-    getVertex(ctx, px, py, startTriangle),
-    "NotVertex",
-  );
+  const startVertex = getVertex(ctx, px, py, startTriangle);
+  if (startVertex === -1) {
+    throw new Error("NotVertex");
+  }
 
   let current = startVertex;
   const LIMIT = 128;
@@ -768,10 +756,10 @@ export function collectBoundary(
       "Half-edge has no `next` reference",
     );
 
-    const twin = validOrNull(
-      ctx.getTwin(nt(ctx.next[next], "Half-edge has no `next` reference")),
+    const twin = ctx.getTwin(
+      nt(ctx.next[next], "Half-edge has no `next` reference"),
     );
-    if (twin === null) {
+    if (twin === -1) {
       boundary.append(nt(ctx.next[next], "Half-edge has no `next` reference"));
       continueCW = true;
       break;
@@ -785,12 +773,12 @@ export function collectBoundary(
   }
 
   if (continueCW) {
-    if (validOrNull(ctx.getTwin(startVertex)) === null) {
+    if (ctx.getTwin(startVertex) === -1) {
       boundary.prepend(startVertex);
     }
 
-    let currentCW = validOrNull(ctx.getTwin(startVertex));
-    while (currentCW !== null) {
+    let currentCW = ctx.getTwin(startVertex);
+    while (currentCW !== -1) {
       i += 1;
       assert(i < LIMIT, "collectBoundary exceeded iteration cap (cw)");
       const next = nt(
@@ -805,12 +793,10 @@ export function collectBoundary(
         "Half-edge has no `next` reference",
       );
 
-      const nextTwin = validOrNull(
-        ctx.getTwin(
-          nt(ctx.next[currentCW], "Half-edge has no `next` reference"),
-        ),
+      const nextTwin = ctx.getTwin(
+        nt(ctx.next[currentCW], "Half-edge has no `next` reference"),
       );
-      if (nextTwin === null) {
+      if (nextTwin === -1) {
         boundary.prepend(
           nt(ctx.next[currentCW], "Half-edge has no `next` reference"),
         );
@@ -827,8 +813,8 @@ export function collectBoundary(
 }
 
 export function removeCollinear(ctx: EdgeContext, boundary: Ring): void {
-  let aNode = validOrNull(boundary.first);
-  if (aNode === null) {
+  let aNode = boundary.first;
+  if (aNode === -1) {
     return;
   }
   let bNode = boundary.nextOf(aNode);
@@ -890,8 +876,8 @@ function computeIsEar(
   if (orient2D(ax, ay, bx, by, cx, cy) <= 0) {
     return false;
   }
-  let other = validOrNull(boundary.first);
-  if (other === null) {
+  let other = boundary.first;
+  if (other === -1) {
     return true;
   }
   do {
