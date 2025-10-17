@@ -1,4 +1,3 @@
-import { nullthrows as nt } from "./nullthrows";
 import {
   orient2D,
   inTriangle,
@@ -14,6 +13,7 @@ import { isConvexQuad, isDelaunay, getVertex } from "./edges";
 
 const STACK_LIMIT = 128;
 const QUEUE_LIMIT = 256;
+const SAFETY_LIMIT = 10_000;
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {
@@ -43,7 +43,7 @@ export function locatePoint(
 ): number {
   let current = start;
   let i = 0;
-  while (i < 10_000) {
+  while (i < SAFETY_LIMIT) {
     i += 1;
 
     const ax = ctx.origins[current * 2]!;
@@ -163,8 +163,8 @@ function flipEdges(ctx: EdgeContext, stack: number[], top: number): void {
       continue;
     }
 
-    const fNext = nt(ctx.next[twin], "Half-edge has no `next` reference");
-    const fNextNext = nt(ctx.next[fNext], "Half-edge has no `next` reference");
+    const fNext = ctx.next[twin]!;
+    const fNextNext = ctx.next[fNext]!;
     stack[top++] = fNext;
     stack[top++] = fNextNext;
     flip(ctx, edge);
@@ -181,14 +181,14 @@ export function findSharedEdge(
 ): number {
   const start = getVertex(ctx, e1x, e1y, edge);
   let current = start;
-  const LIMIT = 100;
+  const SEARCH_LIMIT = 128;
   let i = 0;
 
-  while (i < LIMIT) {
+  while (i < SEARCH_LIMIT) {
     i += 1;
     const ax = ctx.origins[current * 2]!;
     const ay = ctx.origins[current * 2 + 1]!;
-    const bIdx = nt(ctx.next[current], "Half-edge has no `next` reference");
+    const bIdx = ctx.next[current]!;
     const bx = ctx.origins[bIdx * 2]!;
     const by = ctx.origins[bIdx * 2 + 1]!;
     if (pointsEqual(ax, ay, e1x, e1y) && pointsEqual(bx, by, e2x, e2y)) {
@@ -198,32 +198,25 @@ export function findSharedEdge(
     if (twin === -1) {
       break;
     }
-    current = nt(ctx.next[twin], "Half-edge has no `next` reference");
+    current = ctx.next[twin]!;
     if (current === start) {
       break;
     }
   }
 
   current = start;
-  while (i < LIMIT) {
+  i = 0;
+  while (i < SEARCH_LIMIT) {
     i += 1;
     const ax = ctx.origins[current * 2]!;
     const ay = ctx.origins[current * 2 + 1]!;
-    const bIdx = nt(ctx.next[current], "Half-edge has no `next` reference");
+    const bIdx = ctx.next[current]!;
     const bx = ctx.origins[bIdx * 2]!;
     const by = ctx.origins[bIdx * 2 + 1]!;
     if (pointsEqual(ax, ay, e1x, e1y) && pointsEqual(bx, by, e2x, e2y)) {
       return current;
     }
-    const next =
-      ctx.twin[
-        nt(
-          ctx.next[
-            nt(ctx.next[current]!, "Half-edge has no `next` reference")
-          ]!,
-          "Half-edge has no `next` reference",
-        )
-      ]!;
+    const next = ctx.twin[ctx.next[ctx.next[current]!]!]!;
     if (next === -1) {
       break;
     }
@@ -242,8 +235,8 @@ function insertPointInEdge(
   edge: number,
 ): void {
   const ac = edge;
-  const cd = nt(ctx.next[ac], "Half-edge has no `next` reference");
-  const da = nt(ctx.next[cd], "Half-edge has no `next` reference");
+  const cd = ctx.next[ac]!;
+  const da = ctx.next[cd]!;
 
   const daX = ctx.origins[da * 2]!;
   const daY = ctx.origins[da * 2 + 1]!;
@@ -268,7 +261,7 @@ function insertPointInEdge(
   const pa = ctx.twin[ac]!;
   if (pa !== -1) {
     ctx.setOrigin(pa, px, py);
-    const ab = nt(ctx.next[pa], "Half-edge has no `next` reference");
+    const ab = ctx.next[pa]!;
 
     const cdX = ctx.origins[cd * 2]!;
     const cdY = ctx.origins[cd * 2 + 1]!;
@@ -276,7 +269,7 @@ function insertPointInEdge(
     ctx.twin[pc] = cp;
     ctx.twin[cp] = pc;
 
-    const bc = nt(ctx.next[ab], "Half-edge has no `next` reference");
+    const bc = ctx.next[ab]!;
     const bcX = ctx.origins[bc * 2]!;
     const bcY = ctx.origins[bc * 2 + 1]!;
     const pb = ctx.create(px, py);
@@ -394,7 +387,7 @@ function hasIntersection(
 ): boolean {
   const ax = ctx.origins[edge * 2]!;
   const ay = ctx.origins[edge * 2 + 1]!;
-  const bIdx = nt(ctx.next[edge], "Half-edge has no `next` reference");
+  const bIdx = ctx.next[edge]!;
   const bx = ctx.origins[bIdx * 2]!;
   const by = ctx.origins[bIdx * 2 + 1]!;
   return intersect(ax, ay, bx, by, e1x, e1y, e2x, e2y) !== null;
@@ -494,9 +487,9 @@ export function getIntersecting(
   }
 
   let current = startEdge;
-  let iterations = 0;
-  while (iterations < LIMIT) {
-    iterations += 1;
+  let i = 0;
+  while (i < LIMIT) {
+    i += 1;
     const first = ctx.next[current]!;
     const second = ctx.next[first]!;
 
@@ -619,9 +612,9 @@ export function enforceEdge(
     const shared = findSharedEdge(ctx, p, e1x, e1y, e2x, e2y);
     if (shared !== -1) {
       ctx.fixed[shared] = 1;
-      const twinShared = ctx.twin[shared]!;
-      if (twinShared !== -1) {
-        ctx.fixed[twinShared] = 1;
+      const sharedTwin = ctx.twin[shared]!;
+      if (sharedTwin !== -1) {
+        ctx.fixed[sharedTwin] = 1;
       }
       return;
     }
@@ -629,7 +622,9 @@ export function enforceEdge(
 
   getIntersecting(ctx, p, e1x, e1y, e2x, e2y, queue);
 
-  while (true) {
+  let i = 0;
+  while (i < SAFETY_LIMIT) {
+    i += 1;
     if (queue.begin === queue.end) {
       break;
     }
@@ -656,14 +651,14 @@ export function enforceEdge(
 
     flip(ctx, edge);
 
-    const originX = ctx.origins[edge * 2]!;
-    const originY = ctx.origins[edge * 2 + 1]!;
-    const destIdx = ctx.next[edge]!;
-    const destX = ctx.origins[destIdx * 2]!;
-    const destY = ctx.origins[destIdx * 2 + 1]!;
+    const startX = ctx.origins[edge * 2]!;
+    const startY = ctx.origins[edge * 2 + 1]!;
+    const endIdx = ctx.next[edge]!;
+    const endX = ctx.origins[endIdx * 2]!;
+    const endY = ctx.origins[endIdx * 2 + 1]!;
     if (
-      onSegment(originX, originY, e1x, e1y, e2x, e2y) &&
-      onSegment(destX, destY, e1x, e1y, e2x, e2y)
+      onSegment(startX, startY, e1x, e1y, e2x, e2y) &&
+      onSegment(endX, endY, e1x, e1y, e2x, e2y)
     ) {
       ctx.fixed[edge] = 1;
       const twin = ctx.twin[edge]!;
@@ -672,7 +667,7 @@ export function enforceEdge(
       }
     }
 
-    if (doCross(e1x, e1y, e2x, e2y, originX, originY, destX, destY)) {
+    if (doCross(e1x, e1y, e2x, e2y, startX, startY, endX, endY)) {
       queue.items[queue.end++] = edge;
     }
   }
@@ -695,16 +690,6 @@ function ringContains(ring: Ring, edge: number): boolean {
     node = ring.nextOf(node);
   } while (node !== first);
   return false;
-}
-
-function destroyEdgeIfInternal(
-  ctx: EdgeContext,
-  edge: number,
-  boundary: Ring,
-): void {
-  if (!isBoundaryEdge(ctx, edge) && !ringContains(boundary, edge)) {
-    ctx.destroy(edge);
-  }
 }
 
 export function collectBoundary(
@@ -779,7 +764,9 @@ export function collectBoundary(
 
   while (top > 0) {
     const edge = stack[--top]!;
-    destroyEdgeIfInternal(ctx, edge, boundary);
+    if (!isBoundaryEdge(ctx, edge) && !ringContains(boundary, edge)) {
+      ctx.destroy(edge);
+    }
   }
 }
 
@@ -791,7 +778,9 @@ export function removeCollinear(ctx: EdgeContext, boundary: Ring): void {
   let bNode = boundary.nextOf(aNode);
   let cNode = boundary.nextOf(bNode);
 
-  while (true) {
+  let i = 0;
+  while (i < SAFETY_LIMIT) {
+    i += 1;
     const aEdge = boundary.valueOf(aNode);
     const bEdge = boundary.valueOf(bNode);
     const cEdge = boundary.valueOf(cNode);
