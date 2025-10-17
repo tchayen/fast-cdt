@@ -3,8 +3,12 @@
   "module": "index.ts",
   "type": "module",
   "scripts": {
+    "dev": "bun run dev:css & bun --hot example/server.ts",
+    "dev:css": "bun tailwindcss --watch -i ./example/styles.source.css -o ./example/styles.css",
+    "build:css": "bun tailwindcss -i ./example/styles.source.css -o ./example/styles.css",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "test": "bun test",
     "benchmark": "bun run src/benchmark.ts"
   },
   "dependencies": {
@@ -14,11 +18,10 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",
-    "@tailwindcss/vite": "^4.1.14",
+    "@tailwindcss/cli": "^4.1.14",
     "@types/bun": "latest",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
-    "@vitejs/plugin-react": "^5.0.4",
     "eslint": "^9.37.0",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import-x": "^4.16.1",
@@ -29,7 +32,6 @@
     "globals": "^16.4.0",
     "tailwindcss": "^4.1.14",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.1",
-    "vite": "^7.1.10"
+    "typescript-eslint": "^8.46.1"
   }
 }
