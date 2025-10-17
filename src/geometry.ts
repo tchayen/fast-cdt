@@ -40,7 +40,7 @@ export function locatePoint(
   px: number,
   py: number,
   start: number,
-): number | null {
+): number {
   let current = start;
   let i = 0;
   while (i < 10_000) {
@@ -74,7 +74,7 @@ export function locatePoint(
     if (orientB < 0) {
       const twin = ctx.twin[bIdx]!;
       if (twin === -1) {
-        return null;
+        return -1;
       }
       nextEdge = twin;
     } else {
@@ -83,7 +83,7 @@ export function locatePoint(
       if (orientC < 0) {
         const twin = ctx.twin[cIdx]!;
         if (twin === -1) {
-          return null;
+          return -1;
         }
         nextEdge = twin;
       }
@@ -305,8 +305,8 @@ function insertPointInFace(
   edge: number,
 ): void {
   const ab = edge;
-  const bc = nt(ctx.next[ab], "Half-edge has no `next` reference");
-  const ca = nt(ctx.next[bc], "Half-edge has no `next` reference");
+  const bc = ctx.next[ab]!;
+  const ca = ctx.next[bc]!;
 
   const ax = ctx.origins[ab * 2]!;
   const ay = ctx.origins[ab * 2 + 1]!;
@@ -351,7 +351,8 @@ function insertPointInFace(
 
 export function insertPoint(ctx: EdgeContext, px: number, py: number): void {
   const start = ctx.any();
-  const t = nt(locatePoint(ctx, px, py, start), "Edge not found");
+  const t = locatePoint(ctx, px, py, start);
+  assert(t !== -1, "Edge not found");
 
   const tNext = ctx.next[t]!;
   const tNextNext = ctx.next[tNext]!;
@@ -475,7 +476,7 @@ export function getIntersecting(
   queue: Queue,
 ): void {
   const inTriangleEdge = locatePoint(ctx, e1x, e1y, seed);
-  if (inTriangleEdge === null) {
+  if (inTriangleEdge === -1) {
     throw new Error("E1 is not in any triangle");
   }
 
@@ -609,8 +610,8 @@ export function enforceEdge(
 ): void {
   const anyEdge = ctx.any();
   const p = locatePoint(ctx, e1x, e1y, anyEdge);
-  if (p === null) {
-    throw new Error("EdgeNotFound");
+  if (p === -1) {
+    throw new Error("Edge not found");
   }
 
   const vertex = getVertex(ctx, e1x, e1y, p);
@@ -715,13 +716,13 @@ export function collectBoundary(
   boundary.reset();
   const anyEdge = ctx.any();
   const startTriangle = locatePoint(ctx, px, py, anyEdge);
-  if (startTriangle === null) {
-    throw new Error("EdgeNotFound");
+  if (startTriangle === -1) {
+    throw new Error("Edge not found");
   }
 
   const startVertex = getVertex(ctx, px, py, startTriangle);
   if (startVertex === -1) {
-    throw new Error("NotVertex");
+    throw new Error("Not a vertex");
   }
 
   let current = startVertex;

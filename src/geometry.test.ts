@@ -41,7 +41,7 @@ describe("geometry", () => {
   test("locatePoint returns null when stepping outside boundary", () => {
     const { ab, edges } = setupTriangle();
     const point = P(2, 2);
-    expect(locatePoint(edges, point.x, point.y, ab)).toBeNull();
+    expect(locatePoint(edges, point.x, point.y, ab)).toBe(-1);
   });
 
   test("flip updates connectivity", () => {
@@ -81,8 +81,8 @@ describe("geometry", () => {
       y: edges.origins[any * 2 + 1]!,
     };
     const startEdge = locatePoint(edges, point.x, point.y, any);
-    expect(startEdge).not.toBeNull();
-    const shared = findSharedEdge(edges, startEdge!, point.x, point.y, 4, 4);
+    expect(startEdge).not.toBe(-1);
+    const shared = findSharedEdge(edges, startEdge, point.x, point.y, 4, 4);
     expect(shared).not.toBe(-1);
   });
 
