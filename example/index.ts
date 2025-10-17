@@ -11,15 +11,41 @@ import {
 
 let showLabels = false;
 let showEdges = true;
-let selectedMap = 0;
 
 const presets = [
-  { fn: playground, name: "Playground" },
-  { fn: pointRemoval, name: "Point Removal" },
-  { fn: selfIntersecting, name: "Self Intersecting" },
-  { fn: grid, name: "Grid" },
-  { fn: tinySquare, name: "Tiny Square" },
+  { fn: playground, key: "playground", name: "Playground" },
+  { fn: pointRemoval, key: "point-removal", name: "Point Removal" },
+  { fn: selfIntersecting, key: "self-intersecting", name: "Self Intersecting" },
+  { fn: grid, key: "grid", name: "Grid" },
+  { fn: tinySquare, key: "tiny-square", name: "Tiny Square" },
 ];
+
+function getPresetFromUrl(): number {
+  const params = new URLSearchParams(window.location.search);
+  const presetKey = params.get("preset");
+
+  if (presetKey) {
+    const index = presets.findIndex((p) => p.key === presetKey);
+    if (index !== -1) {
+      return index;
+    }
+  }
+
+  return 0;
+}
+
+function updateUrl(presetIndex: number): void {
+  const preset = presets[presetIndex];
+  if (!preset) {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set("preset", preset.key);
+  window.history.replaceState({}, "", url);
+}
+
+let selectedMap = getPresetFromUrl();
 
 const edges = new EdgeContext(64_000);
 
@@ -32,24 +58,67 @@ function loadPreset(index: number): void {
   console.log(`Loading preset: ${preset.name}`);
 
   try {
-    // Measure CDT computation time
     const startTime = performance.now();
     preset.fn(edges);
     const endTime = performance.now();
     const duration = endTime - startTime;
 
-    console.log(`✅ ${preset.name} completed in ${duration.toFixed(2)}ms`);
-    console.log(`   Created ${edges.count()} edges`);
+    console.log(`${preset.name} completed in ${duration.toFixed(2)}ms`);
+    console.log(`Created ${edges.count()} edges`);
     console.log(
-      `   Performance: ${((edges.count() / duration) * 1000).toFixed(
-        0,
-      )} edges/second`,
+      `${((edges.count() / duration) * 1000).toFixed(0)} edges/second`,
     );
 
+    centerView();
     draw();
   } catch (error) {
     console.error(`❌ Failed to load preset ${preset.name}:`, error);
   }
+}
+
+function centerView(): void {
+  const edgeList = exportEdges();
+
+  if (edgeList.length === 0) {
+    return;
+  }
+
+  // Calculate bounding box
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+
+  for (const edge of edgeList) {
+    minX = Math.min(minX, edge.x);
+    maxX = Math.max(maxX, edge.x);
+    minY = Math.min(minY, edge.y);
+    maxY = Math.max(maxY, edge.y);
+  }
+
+  const width = maxX - minX;
+  const height = maxY - minY;
+  const centerX = minX + width / 2;
+  const centerY = minY + height / 2;
+
+  // Calculate scale to fit with 10% margin on top and bottom
+  const canvasWidth = window.innerWidth * dpr;
+  const canvasHeight = window.innerHeight * dpr;
+
+  // Apply 10% margin (so content uses 80% of screen)
+  const targetWidth = canvasWidth * 0.8;
+  const targetHeight = canvasHeight * 0.8;
+
+  const scaleX = width > 0 ? targetWidth / width : 1;
+  const scaleY = height > 0 ? targetHeight / height : 1;
+
+  // Use the smaller scale to ensure everything fits
+  scale = Math.min(scaleX, scaleY, maxScale);
+  scale = Math.max(scale, minScale);
+
+  // Center the view
+  offsetX = canvasWidth / 2 - centerX * scale;
+  offsetY = canvasHeight / 2 - centerY * scale;
 }
 
 type HalfEdge = {
@@ -96,14 +165,13 @@ const maxScale = 30;
 
 const canvas = document.createElement("canvas");
 document.body.append(canvas);
+
 const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 canvas.addEventListener("mousedown", startDragging);
 canvas.addEventListener("mousemove", drag);
 canvas.addEventListener("mouseup", stopDragging);
 canvas.addEventListener("mouseleave", stopDragging);
 canvas.addEventListener("wheel", handleZoom);
-
-// Redraw on window resize.
 window.addEventListener("resize", draw);
 
 const controls = document.createElement("div");
@@ -113,7 +181,6 @@ controls.setAttribute(
 );
 document.body.append(controls);
 
-// Add preset selector
 const presetContainer = document.createElement("div");
 presetContainer.setAttribute(
   "style",
@@ -134,16 +201,18 @@ presets.forEach((preset, index) => {
   presetSelect.append(option);
 });
 
+presetSelect.value = selectedMap.toString();
+
 presetSelect.addEventListener("change", (e) => {
   const target = e.target as HTMLSelectElement;
   selectedMap = Number.parseInt(target.value);
+  updateUrl(selectedMap);
   loadPreset(selectedMap);
 });
 
 presetContainer.append(presetSelect);
 controls.append(presetContainer);
 
-// Add checkboxes
 const checkboxes = document.createElement("div");
 checkboxes.setAttribute(
   "style",
@@ -179,6 +248,19 @@ addCheckbox("show labels", showLabels, () => {
   showLabels = !showLabels;
   draw();
 });
+
+// Add center button
+const centerButton = document.createElement("button");
+centerButton.textContent = "Center";
+centerButton.setAttribute(
+  "style",
+  "padding: 6px 12px; margin-top: 8px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 14px; font-weight: bold;",
+);
+centerButton.addEventListener("click", () => {
+  centerView();
+  draw();
+});
+controls.append(centerButton);
 
 let isDragging = false;
 let lastX = 0;
@@ -263,7 +345,6 @@ function draw() {
 
   const edgeList = exportEdges();
 
-  // Create a map for fast edge lookup.
   const edgeMap = new Map<number, HalfEdge>();
   for (const edge of edgeList) {
     edgeMap.set(edge.index, edge);
@@ -313,4 +394,5 @@ function draw() {
   }
 }
 
+updateUrl(selectedMap);
 loadPreset(selectedMap);
