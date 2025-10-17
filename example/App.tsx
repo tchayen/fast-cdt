@@ -422,14 +422,14 @@ export default function App() {
           value={selectedPreset.toString()}
         >
           <Label className="text-sm font-semibold text-gray-700">Preset</Label>
-          <Button className="h-7 px-2 border border-gray-300 bg-white text-sm text-left">
+          <Button className="h-7 px-2 border border-gray-300 bg-white text-sm text-left outline-none">
             <SelectValue />
           </Button>
           <Popover className="bg-white border border-gray-300 shadow-lg">
             <ListBox className="outline-none w-40">
               {presets.map((preset, index) => (
                 <ListBoxItem
-                  className="cursor-default h-7 px-2 flex items-center text-sm outline-none data-[hovered]:bg-blue-100"
+                  className="cursor-default h-7 px-2 flex items-center text-sm outline-none data-[hovered]:bg-gray-100"
                   id={index.toString()}
                   key={index}
                 >

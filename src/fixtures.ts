@@ -182,10 +182,10 @@ export function pointRemoval(edges: EdgeContext): void {
     P(76, 326),
   ]);
 
-  // removePoint(edges, 113, 312);
-  // removePoint(edges, P(138, 221));
-  // removePoint(edges, P(155, 256));
-  // removePoint(edges, 0, 333);
+  removePoint(edges, 113, 312);
+  removePoint(edges, 138, 221);
+  removePoint(edges, 155, 256);
+  removePoint(edges, 0, 333);
 }
 
 export function selfIntersecting(edges: EdgeContext): void {
