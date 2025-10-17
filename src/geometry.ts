@@ -15,15 +15,23 @@ import { isConvexQuad, isDelaunay, getVertex } from "./edges";
 const STACK_LIMIT = 128;
 const QUEUE_LIMIT = 256;
 
-let queueBegin = 0;
-let queueEnd = 0;
-
-const queue = new Array<number>(QUEUE_LIMIT);
-const boundaryRing = new Ring(256);
-
 function assert(condition: boolean, message: string): void {
   if (!condition) {
     throw new Error(message);
+  }
+}
+
+class Queue {
+  public begin: number;
+  public end: number;
+
+  constructor(
+    public readonly items: number[],
+    public readonly capacity: number,
+  ) {
+    this.items = new Array(capacity);
+    this.begin = 0;
+    this.end = 0;
   }
 }
 
@@ -292,7 +300,6 @@ function insertPointInEdge(
   }
 
   flipEdges(ctx, stack, top);
-  top = 0;
 }
 
 function insertPointInFace(
@@ -344,7 +351,6 @@ function insertPointInFace(
   stack[top++] = bc;
   stack[top++] = ca;
   flipEdges(ctx, stack, top);
-  top = 0;
 }
 
 export function insertPoint(ctx: EdgeContext, px: number, py: number): void {
@@ -481,6 +487,7 @@ export function getIntersecting(
   e1y: number,
   e2x: number,
   e2y: number,
+  queue: Queue,
 ): void {
   const inTriangleEdge = locatePoint(ctx, e1x, e1y, seed);
   if (inTriangleEdge === null) {
@@ -517,7 +524,7 @@ export function getIntersecting(
       if (intersection !== null) {
         const twin = ctx.twin[edge]!;
         assert(twin !== -1, "intersecting edge should have a twin");
-        queue[queueEnd++] = edge;
+        queue.items[queue.end++] = edge;
         current = twin;
       }
     }
@@ -613,6 +620,9 @@ function markCrossing(
   }
 }
 
+// Shared global queue for `enforceEdge` and `getIntersecting`.
+const queue = new Queue(new Array<number>(QUEUE_LIMIT), QUEUE_LIMIT);
+
 export function enforceEdge(
   ctx: EdgeContext,
   e1x: number,
@@ -620,8 +630,6 @@ export function enforceEdge(
   e2x: number,
   e2y: number,
 ): void {
-  queueBegin = 0;
-  queueEnd = 0;
   const anyEdge = ctx.any();
   const p = locatePoint(ctx, e1x, e1y, anyEdge);
   if (p === null) {
@@ -641,13 +649,13 @@ export function enforceEdge(
     }
   }
 
-  getIntersecting(ctx, p, e1x, e1y, e2x, e2y);
+  getIntersecting(ctx, p, e1x, e1y, e2x, e2y, queue);
 
   while (true) {
-    if (queueBegin === queueEnd) {
+    if (queue.begin === queue.end) {
       break;
     }
-    const edge = queue[queueBegin++]!;
+    const edge = queue.items[queue.begin++]!;
 
     if (ctx.fixed[edge] === 1) {
       const ax = ctx.origins[edge * 2]!;
@@ -664,7 +672,7 @@ export function enforceEdge(
     }
 
     if (!isConvexQuad(ctx, edge)) {
-      queue[queueEnd++] = edge;
+      queue.items[queue.end++] = edge;
       continue;
     }
 
@@ -687,7 +695,7 @@ export function enforceEdge(
     }
 
     if (doCross(e1x, e1y, e2x, e2y, originX, originY, destX, destY)) {
-      queue[queueEnd++] = edge;
+      queue.items[queue.end++] = edge;
     }
   }
 }
@@ -965,11 +973,11 @@ export function fillCavity(ctx: EdgeContext, boundary: Ring): void {
   }
 
   flipEdges(ctx, stack, top);
-  top = 0;
 }
 
+const boundaryRing = new Ring(256);
+
 export function removePoint(ctx: EdgeContext, px: number, py: number): void {
-  boundaryRing.reset();
   collectBoundary(ctx, boundaryRing, px, py);
   removeCollinear(ctx, boundaryRing);
   fillCavity(ctx, boundaryRing);
