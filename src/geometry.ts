@@ -601,6 +601,9 @@ export function enforceEdge(
   e2x: number,
   e2y: number,
 ): void {
+  queue.begin = 0;
+  queue.end = 0;
+
   const anyEdge = ctx.any();
   const p = locatePoint(ctx, e1x, e1y, anyEdge);
   if (p === -1) {
