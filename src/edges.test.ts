@@ -97,7 +97,7 @@ describe("edges helpers", () => {
     expect(getVertex(edges, b.x, b.y, ab)).toBe(bc);
     expect(getVertex(edges, c.x, c.y, ab)).toBe(ca);
     const p = P(2, 2);
-    expect(getVertex(edges, p.x, p.y, ab)).toBe(-1);
+    expect(() => getVertex(edges, p.x, p.y, ab)).toThrow("Vertex not found");
   });
 
   test("isEdgeEqual", () => {

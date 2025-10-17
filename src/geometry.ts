@@ -15,14 +15,9 @@ import { isConvexQuad, isDelaunay, getVertex } from "./edges";
 const STACK_LIMIT = 128;
 const QUEUE_LIMIT = 256;
 
-let flipStackTop = 0;
-let insertStackTop = 0;
-let destroyStackTop = 0;
 let queueBegin = 0;
 let queueEnd = 0;
-const flipStack = new Array<number>(STACK_LIMIT);
-const insertStack = new Array<number>(STACK_LIMIT);
-const destroyStack = new Array<number>(STACK_LIMIT);
+
 const queue = new Array<number>(QUEUE_LIMIT);
 const boundaryRing = new Ring(256);
 
@@ -146,16 +141,13 @@ export function flip(ctx: EdgeContext, edge: number): void {
   ctx.next[da] = ab;
 }
 
-export function flipEdges(
+function flipEdges(
   ctx: EdgeContext,
   stackValues: number[],
-  stackTop: { value: number },
+  stackTop: number,
 ): void {
-  while (true) {
-    if (stackTop.value === 0) {
-      break;
-    }
-    const edge = stackValues[--stackTop.value]!;
+  while (stackTop > 0) {
+    const edge = stackValues[--stackTop]!;
     const twin = ctx.twin[edge]!;
     if (twin === -1) {
       continue;
@@ -169,8 +161,8 @@ export function flipEdges(
 
     const fNext = nt(ctx.next[twin], "Half-edge has no `next` reference");
     const fNextNext = nt(ctx.next[fNext], "Half-edge has no `next` reference");
-    stackValues[stackTop.value++] = fNext;
-    stackValues[stackTop.value++] = fNextNext;
+    stackValues[stackTop++] = fNext;
+    stackValues[stackTop++] = fNextNext;
     flip(ctx, edge);
   }
 }
@@ -184,7 +176,6 @@ export function findSharedEdge(
   e2y: number,
 ): number {
   const start = getVertex(ctx, e1x, e1y, edge);
-  assert(start !== -1, "findSharedEdge: e1 not a vertex");
   let current = start;
   const LIMIT = 100;
   let i = 0;
@@ -265,9 +256,10 @@ function insertPointInEdge(
   ctx.next[dp] = pc;
   ctx.next[cd] = dp;
 
-  insertStackTop = 0;
-  insertStack[insertStackTop++] = cd;
-  insertStack[insertStackTop++] = da;
+  let top = 0;
+  const stack = new Array<number>(STACK_LIMIT);
+  stack[top++] = cd;
+  stack[top++] = da;
 
   const pa = ctx.twin[ac]!;
   if (pa !== -1) {
@@ -295,12 +287,12 @@ function insertPointInEdge(
     ctx.next[pb] = bc;
     ctx.next[bc] = cp;
 
-    insertStack[insertStackTop++] = ab;
-    insertStack[insertStackTop++] = bc;
+    stack[top++] = ab;
+    stack[top++] = bc;
   }
 
-  flipEdges(ctx, insertStack, { value: insertStackTop });
-  insertStackTop = 0;
+  flipEdges(ctx, stack, top);
+  top = 0;
 }
 
 function insertPointInFace(
@@ -346,12 +338,13 @@ function insertPointInFace(
   ctx.next[bc] = cp;
   ctx.next[ca] = ap;
 
-  insertStackTop = 0;
-  insertStack[insertStackTop++] = ab;
-  insertStack[insertStackTop++] = bc;
-  insertStack[insertStackTop++] = ca;
-  flipEdges(ctx, insertStack, { value: insertStackTop });
-  insertStackTop = 0;
+  let top = 0;
+  const stack = new Array<number>(STACK_LIMIT);
+  stack[top++] = ab;
+  stack[top++] = bc;
+  stack[top++] = ca;
+  flipEdges(ctx, stack, top);
+  top = 0;
 }
 
 export function insertPoint(ctx: EdgeContext, px: number, py: number): void {
@@ -750,17 +743,15 @@ export function collectBoundary(
   const LIMIT = 128;
   let i = 0;
   let continueCW = false;
-  destroyStackTop = 0;
+  let top = 0;
+  const stack = new Array<number>(STACK_LIMIT);
 
   while (i < LIMIT) {
     const next = nt(ctx.next[current], "Half-edge has no `next` reference");
     boundary.append(next);
 
-    destroyStack[destroyStackTop++] = current;
-    destroyStack[destroyStackTop++] = nt(
-      ctx.next[next],
-      "Half-edge has no `next` reference",
-    );
+    stack[top++] = current;
+    stack[top++] = nt(ctx.next[next], "Half-edge has no `next` reference");
 
     const twin =
       ctx.twin[nt(ctx.next[next]!, "Half-edge has no `next` reference")]!;
@@ -792,8 +783,8 @@ export function collectBoundary(
       );
       boundary.prepend(next);
 
-      destroyStack[destroyStackTop++] = currentCW;
-      destroyStack[destroyStackTop++] = nt(
+      stack[top++] = currentCW;
+      stack[top++] = nt(
         ctx.next[currentCW],
         "Half-edge has no `next` reference",
       );
@@ -812,8 +803,8 @@ export function collectBoundary(
     }
   }
 
-  while (destroyStackTop > 0) {
-    const edge = destroyStack[--destroyStackTop]!;
+  while (top > 0) {
+    const edge = stack[--top]!;
     destroyEdgeIfInternal(ctx, edge, boundary);
   }
 }
@@ -906,7 +897,8 @@ export function fillCavity(ctx: EdgeContext, boundary: Ring): void {
     boundary.length() >= 3,
     "fillCavity expects at least three boundary edges",
   );
-  flipStackTop = 0;
+  const stack = new Array<number>(STACK_LIMIT);
+  let top = 0;
   let current = boundary.first;
 
   while (boundary.length() > 3 && current !== -1) {
@@ -949,8 +941,8 @@ export function fillCavity(ctx: EdgeContext, boundary: Ring): void {
       ctx.next[bEdge] = ca;
       ctx.next[ca] = aEdge;
 
-      flipStack[flipStackTop++] = aEdge;
-      flipStack[flipStackTop++] = bEdge;
+      stack[top++] = aEdge;
+      stack[top++] = bEdge;
 
       current = boundary.insertAfter(bNode, ac);
       boundary.remove(aNode);
@@ -972,8 +964,8 @@ export function fillCavity(ctx: EdgeContext, boundary: Ring): void {
     ctx.next[cEdge] = aEdge;
   }
 
-  flipEdges(ctx, flipStack, { value: flipStackTop });
-  flipStackTop = 0;
+  flipEdges(ctx, stack, top);
+  top = 0;
 }
 
 export function removePoint(ctx: EdgeContext, px: number, py: number): void {

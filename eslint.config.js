@@ -109,6 +109,7 @@ export default tseslint.config(
       "unused-imports/no-unused-imports": 2,
     },
     settings: {
+      "import-x/core-modules": ["bun:test", "bun:sqlite"],
       "import-x/parsers": {
         "@typescript-eslint/parser": [".ts", ".tsx"],
       },

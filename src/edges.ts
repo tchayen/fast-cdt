@@ -77,5 +77,5 @@ export function getVertex(
   if (pointsEqual(cx, cy, px, py)) {
     return cIdx;
   }
-  return -1;
+  throw new Error("Vertex not found");
 }
