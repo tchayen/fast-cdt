@@ -2,6 +2,16 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Button,
+  Checkbox,
+  Label,
+  ListBox,
+  ListBoxItem,
+  Popover,
+  Select,
+  SelectValue,
+} from "react-aria-components";
+import {
   EdgeContext,
   grid,
   playground,
@@ -20,7 +30,7 @@ type HalfEdge = {
 };
 
 type Preset = {
-  fn: (edges: InstanceType<typeof EdgeContext>) => void;
+  fn: (edges: EdgeContext) => void;
   key: string;
   name: string;
 };
@@ -37,6 +47,35 @@ const dpr = window.devicePixelRatio;
 const initialScale = dpr;
 const minScale = 1;
 const maxScale = 30;
+
+function StyledCheckbox({
+  children,
+  isSelected,
+  onChange,
+}: {
+  children: React.ReactNode;
+  isSelected: boolean;
+  onChange: (isSelected: boolean) => void;
+}) {
+  return (
+    <Checkbox
+      className="flex items-center gap-2 group"
+      isSelected={isSelected}
+      onChange={onChange}
+    >
+      <div className="w-4 h-4 border border-gray-300 flex items-center justify-center group-data-[selected]:bg-gray-300 group-data-[selected]:border-gray-300">
+        <svg
+          className="w-2.5 h-2.5 text-black opacity-0 group-data-[selected]:opacity-100"
+          fill="none"
+          viewBox="0 0 12 10"
+        >
+          <path d="M1 5L4.5 8.5L11 1.5" stroke="currentColor" strokeWidth="2" />
+        </svg>
+      </div>
+      <span className="text-sm select-none text-gray-700">{children}</span>
+    </Checkbox>
+  );
+}
 
 function getPresetFromUrl(): number {
   const params = new URLSearchParams(window.location.search);
@@ -63,7 +102,7 @@ function updateUrl(presetIndex: number): void {
   window.history.replaceState({}, "", url);
 }
 
-function exportEdges(edges: InstanceType<typeof EdgeContext>): HalfEdge[] {
+function exportEdges(edges: EdgeContext): HalfEdge[] {
   const result: HalfEdge[] = [];
   const capacity = edges.getCapacity();
 
@@ -103,7 +142,7 @@ function edgeToString(x1: number, y1: number, x2: number, y2: number): string {
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const edgesRef = useRef<InstanceType<typeof EdgeContext> | null>(null);
+  const edgesRef = useRef<EdgeContext | null>(null);
   const isDraggingRef = useRef(false);
   const lastXRef = useRef(0);
   const lastYRef = useRef(0);
@@ -306,14 +345,31 @@ export default function App() {
     [draw],
   );
 
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
-      e.preventDefault();
+  const handleCenter = useCallback(() => {
+    centerView();
+  }, [centerView]);
 
-      const canvas = canvasRef.current;
-      if (!canvas) {
-        return;
-      }
+  useEffect(() => {
+    if (edgesRef.current) {
+      updateUrl(selectedPreset);
+      loadPreset(selectedPreset);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => draw();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [draw]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
 
       const rect = canvas.getBoundingClientRect();
       const mouseX = (e.clientX - rect.left) * dpr;
@@ -334,35 +390,10 @@ export default function App() {
       scaleRef.current = newScale;
 
       draw();
-    },
-    [draw],
-  );
+    };
 
-  const handlePresetChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const index = Number.parseInt(e.target.value);
-      setSelectedPreset(index);
-      updateUrl(index);
-      loadPreset(index);
-    },
-    [loadPreset],
-  );
-
-  const handleCenter = useCallback(() => {
-    centerView();
-  }, [centerView]);
-
-  useEffect(() => {
-    if (edgesRef.current) {
-      updateUrl(selectedPreset);
-      loadPreset(selectedPreset);
-    }
-  }, []);
-
-  useEffect(() => {
-    const handleResize = () => draw();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", handleWheel);
   }, [draw]);
 
   useEffect(() => {
@@ -377,60 +408,51 @@ export default function App() {
         onMouseLeave={handleMouseUp}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onWheel={handleWheel}
         ref={canvasRef}
       />
       <div className="absolute top-0 right-0 z-1 flex flex-col gap-2 p-4 bg-gray-50">
+        <Select
+          className="flex flex-col gap-1 w-40"
+          onChange={(key) => {
+            const index = Number(key);
+            setSelectedPreset(index);
+            updateUrl(index);
+            loadPreset(index);
+          }}
+          value={selectedPreset.toString()}
+        >
+          <Label className="text-sm font-semibold text-gray-700">Preset</Label>
+          <Button className="h-7 px-2 border border-gray-300 bg-white text-sm text-left">
+            <SelectValue />
+          </Button>
+          <Popover className="bg-white border border-gray-300 shadow-lg">
+            <ListBox className="outline-none w-40">
+              {presets.map((preset, index) => (
+                <ListBoxItem
+                  className="cursor-default h-7 px-2 flex items-center text-sm outline-none data-[hovered]:bg-blue-100"
+                  id={index.toString()}
+                  key={index}
+                >
+                  {preset.name}
+                </ListBoxItem>
+              ))}
+            </ListBox>
+          </Popover>
+        </Select>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-bold text-gray-700">Preset:</label>
-          <select
-            className="py-1 px-3 border border-gray-300 rounded bg-white text-sm"
-            onChange={handlePresetChange}
-            value={selectedPreset}
-          >
-            {presets.map((preset, index) => (
-              <option key={preset.key} value={index}>
-                {preset.name}
-              </option>
-            ))}
-          </select>
+          <StyledCheckbox isSelected={showEdges} onChange={setShowEdges}>
+            show edges
+          </StyledCheckbox>
+          <StyledCheckbox isSelected={showLabels} onChange={setShowLabels}>
+            show labels
+          </StyledCheckbox>
         </div>
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center">
-            <input
-              checked={showEdges}
-              id="show-edges"
-              onChange={(e) => setShowEdges(e.target.checked)}
-              type="checkbox"
-            />
-            <label
-              className="ml-1 text-sm select-none text-gray-700"
-              htmlFor="show-edges"
-            >
-              show edges
-            </label>
-          </div>
-          <div className="flex items-center">
-            <input
-              checked={showLabels}
-              id="show-labels"
-              onChange={(e) => setShowLabels(e.target.checked)}
-              type="checkbox"
-            />
-            <label
-              className="ml-1 text-sm select-none text-gray-700"
-              htmlFor="show-labels"
-            >
-              show labels
-            </label>
-          </div>
-        </div>
-        <button
-          className="mt-2 px-3 py-1.5 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 transition-colors cursor-pointer"
-          onClick={handleCenter}
+        <Button
+          className="self-end mt-2 px-4 h-8 bg-gray-200 text-sm text-black rounded-full font-medium hover:bg-gray-300 cursor-default"
+          onPress={handleCenter}
         >
           Center
-        </button>
+        </Button>
       </div>
     </div>
   );
