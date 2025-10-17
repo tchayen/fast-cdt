@@ -201,7 +201,6 @@ export function selfIntersecting(edges: EdgeContext): void {
   enforceEdge(edges, 10, 70, 50, 50);
   enforceEdge(edges, 50, 50, 20, 45);
 
-  insertSquare(edges, 90, 0, 10);
   insertSquare(edges, 20, 50, 30);
 }
 

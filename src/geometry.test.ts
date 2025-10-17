@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { EdgeContext } from "../src/EdgeContext";
 import { insertSquare, P } from "./utils";
 import {

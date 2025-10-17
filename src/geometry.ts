@@ -483,17 +483,12 @@ function findStartEdgeForIntersect(
 
 export function getIntersecting(
   ctx: EdgeContext,
-  queueValues: number[],
-  queueBegin: number,
-  queueEnd: number,
   seed: number,
   e1x: number,
   e1y: number,
   e2x: number,
   e2y: number,
 ): void {
-  queueBegin = 0;
-  queueEnd = 0;
   const inTriangleEdge = locatePoint(ctx, e1x, e1y, seed);
   if (inTriangleEdge === null) {
     throw new Error("E1NotInAnyTriangle");
@@ -653,7 +648,7 @@ export function enforceEdge(
     }
   }
 
-  getIntersecting(ctx, queue, queueBegin, queueEnd, p, e1x, e1y, e2x, e2y);
+  getIntersecting(ctx, p, e1x, e1y, e2x, e2y);
 
   while (true) {
     if (queueBegin === queueEnd) {
