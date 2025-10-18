@@ -1,5 +1,7 @@
 # fast-cdt
 
+A decently fast implementation of incremental CDT (Constrained Delaunay Triangulation) made with use in pathfinding in mind (but possibly useful elsewhere wherever you might need CDT).
+
 ## Notes
 
 - I tried `robust-predicates` but it was actually a 40% slowdown (expectedly as there's much more math there).
