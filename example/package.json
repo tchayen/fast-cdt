@@ -1,0 +1,22 @@
+{
+  "name": "fast-cdt-example",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run dev:css & bun --hot server.ts",
+    "dev:css": "bun tailwindcss --watch -i ./styles.source.css -o ./styles.css",
+    "build": "bun run build:css && bun build index.html --outdir dist --minify",
+    "build:css": "bun tailwindcss -i ./styles.source.css -o ./styles.css"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-aria-components": "^1.13.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.14",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "tailwindcss": "^4.1.14"
+  }
+}
