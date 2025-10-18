@@ -2,16 +2,19 @@
 
 A decently fast implementation of incremental CDT (Constrained Delaunay Triangulation) made with use in pathfinding in mind (but possibly useful elsewhere wherever you might need CDT).
 
-Features 3 versions:
+This repository contains a benchmark comparing 4 implementations:
 
-- default (using idiomatic modern JS/TS but overall cautious about performance)
-- sped up version which goes harder into using static array allocation
-- original Zig implementation that also compiles to WASM
+1. **Default JS** (`src/`) - idiomatic modern TypeScript with cautious performance optimizations
+2. **Fast JS** (`fast/`) - optimized version using static typed arrays for memory allocation
+3. **WASM** (`zig/`) - Zig implementation compiled to WebAssembly
+4. **Native Zig** (`zig/`) - native Zig binary for maximum performance
+
+The benchmark tests each implementation across different JavaScript runtimes (Node.js/V8 and Bun/JSC).
 
 ## Running
 
 ```
-./benchmark-all.ts
+./benchmark.ts
 ```
 
 Will do builds of two JS variants, build Zig and also run both WASM and native version (requires zig installed e.g. with `brew`).
@@ -27,20 +30,18 @@ Example results on Apple M3 (Air):
 | WASM (Bun/JSC)       | 0.032292 | 3.02x   |
 | Zig Native           | 0.025291 | 3.85x   |
 
-## Web example
+## Web demo
 
-I use it as a test to make sure everything works (benchmarks of broken code are not worth much).
-
-In two separate terminals:
-
-```
-bun dev:css
-```
-
-and
+Interactive demo that verifies all implementations work correctly. Run in the `example/` directory:
 
 ```
 bun dev
 ```
 
-You can switch between 5 examples and 3 versions (default, fast, WASM).
+and
+
+```
+bun dev:css
+```
+
+The demo allows switching between 5 test scenarios and 3 implementations (default, fast, WASM).

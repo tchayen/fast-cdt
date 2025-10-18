@@ -19,8 +19,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "bun test",
-    "benchmark": "bun run src/benchmark.ts",
-    "benchmark:all": "bun run benchmark-all.ts"
+    "benchmark": "bun run benchmark.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",

@@ -8,6 +8,9 @@ import unicorn from "eslint-plugin-unicorn";
 import unusedImports from "eslint-plugin-unused-imports";
 
 export default tseslint.config(
+  {
+    ignores: ["dist/", "dist-fast/", "example/dist/", "zig-out/"],
+  },
   js.configs.recommended,
   tseslint.configs.recommended,
   importPlugin.flatConfigs.recommended,

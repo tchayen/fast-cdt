@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { EdgeContext } from "../src/EdgeContext";
+import { EdgeContext } from "./EdgeContext";
 import { insertSquare, P } from "./utils";
 import {
   locatePoint,
@@ -10,7 +10,7 @@ import {
   enforceEdge,
   collectBoundary,
   removePoint,
-} from "../src/geometry";
+} from "./geometry";
 import { Ring } from "./Ring";
 
 type Point = { x: number; y: number };

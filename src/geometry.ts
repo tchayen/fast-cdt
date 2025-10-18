@@ -69,7 +69,6 @@ export function locatePoint(
 
     let nextEdge: HalfEdge | null = null;
 
-    // Check edge bEdge
     const orientB = orient2D(b, c, p);
     if (orientB < 0) {
       const twin = bEdge.twin;
@@ -78,7 +77,6 @@ export function locatePoint(
       }
       nextEdge = twin;
     } else {
-      // Check edge cEdge
       const orientC = orient2D(c, a, p);
       if (orientC < 0) {
         const twin = cEdge.twin;

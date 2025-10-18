@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { EdgeContext } from "../src/EdgeContext";
+import { EdgeContext } from "./EdgeContext";
 import { P } from "./utils";
-import { isConvexQuad, isDelaunay, getVertex } from "../src/edges";
-import { pointsEqual } from "../src/checks";
+import { isConvexQuad, isDelaunay, getVertex } from "./edges";
+import { pointsEqual } from "./checks";
 
 function isEdgeEqual(
   ctx: EdgeContext,

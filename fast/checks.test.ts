@@ -6,7 +6,7 @@ import {
   doCross,
   intersect,
   onSegment,
-} from "../src/checks";
+} from "./checks";
 import { P } from "./utils";
 
 describe("checks", () => {

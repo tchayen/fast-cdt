@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { EdgeContext } from "../src/EdgeContext";
+import { EdgeContext } from "./EdgeContext";
 
 describe("EdgeContext", () => {
   test("basic allocation lifecycle", () => {

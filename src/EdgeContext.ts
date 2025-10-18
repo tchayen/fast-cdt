@@ -79,13 +79,4 @@ export class EdgeContext {
   isInUse(edge: HalfEdge): boolean {
     return this.edges.includes(edge);
   }
-
-  // Helper methods to match the old API for easier testing
-  getOriginX(edge: HalfEdge): number {
-    return edge.origin.x;
-  }
-
-  getOriginY(edge: HalfEdge): number {
-    return edge.origin.y;
-  }
 }
