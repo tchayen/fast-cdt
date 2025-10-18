@@ -112,7 +112,48 @@ const defaultBunP50 = await runJSBenchmark("default", "dist", "bun");
 const fastNodeP50 = await runJSBenchmark("fast", "dist-fast", "node");
 const fastBunP50 = await runJSBenchmark("fast", "dist-fast", "bun");
 
-console.log("BENCHMARKING: Zig Native");
+// WASM benchmark (Bun only)
+console.log("BENCHMARKING: WASM (Bun)");
+const wasmFile = await Bun.file("zig/zig-out/bin/lib.wasm").arrayBuffer();
+const wasmModule = await WebAssembly.instantiate(wasmFile);
+const wasm = wasmModule.instance.exports as {
+  exportPacked(): void;
+  init(): void;
+  len(): number;
+  memory: WebAssembly.Memory;
+  ptr(): number;
+  setSelectedMap(i: number): void;
+};
+
+wasm.init();
+
+const wasmTimes: number[] = [];
+const iterations = 10_000;
+
+for (let i = 0; i < iterations; i++) {
+  const start = performance.now();
+  wasm.setSelectedMap(0); // 0 = playground
+  const end = performance.now();
+  wasmTimes.push(end - start);
+}
+
+wasmTimes.sort((a, b) => a - b);
+const wasmSum = wasmTimes.reduce((acc, t) => acc + t, 0);
+const wasmAvg = wasmSum / iterations;
+const wasmP5 = wasmTimes[Math.floor(iterations * 0.05)]!;
+const wasmP50 = wasmTimes[Math.floor(iterations * 0.5)]!;
+const wasmP95 = wasmTimes[Math.floor(iterations * 0.95)]!;
+
+console.log(`\nResults:`);
+console.log(`  Total iterations: ${iterations}`);
+console.log(`  Total time: ${(wasmSum / 1000).toFixed(3)}s`);
+console.log(`  Average time: ${wasmAvg.toFixed(6)}ms`);
+console.log(`  p5:  ${wasmP5.toFixed(6)}ms`);
+console.log(`  p50: ${wasmP50.toFixed(6)}ms`);
+console.log(`  p95: ${wasmP95.toFixed(6)}ms`);
+console.log(`  Ops/sec: ${(1000 / wasmAvg).toFixed(2)}`);
+
+console.log("\nBENCHMARKING: Zig Native");
 const zigResult = await $`./zig/zig-out/bin/zcdt 2>&1`;
 const zigOutput = zigResult.text() || "";
 const zigMatch = zigOutput.match(/p50:\s+([\d.]+)ms/);
@@ -120,20 +161,22 @@ const zigP50 = zigMatch?.[1] ? Number.parseFloat(zigMatch[1]) : 0;
 
 console.log("BENCHMARK COMPLETE");
 
-// Summary table
 const results = [
   { name: "Default JS (Node/V8)", p50: defaultNodeP50 },
   { name: "Default JS (Bun/JSC)", p50: defaultBunP50 },
   { name: "Fast JS (Node/V8)", p50: fastNodeP50 },
   { name: "Fast JS (Bun/JSC)", p50: fastBunP50 },
+  { name: "WASM (Bun/JSC)", p50: wasmP50 },
   { name: "Zig Native", p50: zigP50 },
 ];
 
-// Sort by p50 descending (slowest first)
 results.sort((a, b) => b.p50 - a.p50);
 
-// Use the slowest as baseline
-const baseline = results[0].p50;
+const slowest = results[0];
+if (!slowest) {
+  throw new Error("No results to compare");
+}
+const baseline = slowest.p50;
 
 console.log("\nSUMMARY");
 console.log(
