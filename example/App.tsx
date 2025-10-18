@@ -11,7 +11,6 @@ import {
   Select,
   SelectValue,
 } from "react-aria-components";
-// Toggle between implementations: change "../slow-src" to ".." for optimized version
 import {
   EdgeContext,
   grid,
@@ -19,7 +18,16 @@ import {
   pointRemoval,
   selfIntersecting,
   tinySquare,
-} from "../slower-src";
+} from "../src";
+
+import {
+  EdgeContext as FastEdgeContext,
+  grid as fastGrid,
+  playground as fastPlayground,
+  pointRemoval as fastPointRemoval,
+  selfIntersecting as fastSelfIntersecting,
+  tinySquare as fastTinySquare,
+} from "../fast";
 
 declare global {
   var wasm: {
@@ -35,7 +43,6 @@ declare global {
   var wasmInitialized: boolean;
 }
 
-// Initialize global state
 if (globalThis.wasmStatus === undefined) {
   globalThis.wasmStatus = "uninitialized";
 }
@@ -57,18 +64,46 @@ type HalfEdge = {
 };
 
 type Preset = {
-  fn: (edges: EdgeContext) => void;
+  defaultFn: (edges: EdgeContext) => void;
+  fastFn: (edges: FastEdgeContext) => void;
   key: string;
   name: string;
 };
 
-// Presets match 1:1 with Zig SelectedMap enum
+type Implementation = "default" | "fast" | "wasm";
+
+const implementations: { key: Implementation; name: string }[] = [
+  { key: "default", name: "Default" },
+  { key: "fast", name: "Fast" },
+  { key: "wasm", name: "WASM (Zig)" },
+];
+
 const presets: Preset[] = [
-  { fn: playground, key: "playground", name: "Playground" },
-  { fn: pointRemoval, key: "point-removal", name: "Point Removal" },
-  { fn: selfIntersecting, key: "self-intersecting", name: "Self Intersecting" },
-  { fn: grid, key: "grid", name: "Grid" },
-  { fn: tinySquare, key: "tiny-square", name: "Tiny Square" },
+  {
+    defaultFn: playground,
+    fastFn: fastPlayground,
+    key: "playground",
+    name: "Playground",
+  },
+  {
+    defaultFn: pointRemoval,
+    fastFn: fastPointRemoval,
+    key: "point-removal",
+    name: "Point Removal",
+  },
+  {
+    defaultFn: selfIntersecting,
+    fastFn: fastSelfIntersecting,
+    key: "self-intersecting",
+    name: "Self Intersecting",
+  },
+  { defaultFn: grid, fastFn: fastGrid, key: "grid", name: "Grid" },
+  {
+    defaultFn: tinySquare,
+    fastFn: fastTinySquare,
+    key: "tiny-square",
+    name: "Tiny Square",
+  },
 ];
 
 const dpr = window.devicePixelRatio;
@@ -130,7 +165,6 @@ function updateUrl(presetIndex: number): void {
   window.history.replaceState({}, "", url);
 }
 
-// Type guard for optimized implementation
 type OptimizedEdgeContext = EdgeContext & {
   fixed: Uint8Array;
   isInUse: (index: number) => boolean;
@@ -139,7 +173,6 @@ type OptimizedEdgeContext = EdgeContext & {
   twin: Int32Array;
 };
 
-// Type for naive implementation edge
 type NaiveHalfEdge = {
   fixed: boolean;
   next: NaiveHalfEdge | null;
@@ -155,7 +188,6 @@ function exportEdges(edges: EdgeContext): HalfEdge[] {
   const result: HalfEdge[] = [];
 
   if (isOptimizedContext(edges)) {
-    // Optimized implementation with typed arrays
     const capacity = edges.getCapacity();
     for (let i = 0; i < capacity; i++) {
       if (!edges.isInUse(i)) {
@@ -178,11 +210,9 @@ function exportEdges(edges: EdgeContext): HalfEdge[] {
       });
     }
   } else {
-    // Naive implementation with classes
     const edgeList = [...edges.iterator()] as unknown as NaiveHalfEdge[];
     const edgeToIndex = new Map<NaiveHalfEdge, number>();
 
-    // Create index mapping for edges
     edgeList.forEach((edge, idx) => {
       edgeToIndex.set(edge, idx);
     });
@@ -262,10 +292,6 @@ function readWasmEdges(): HalfEdge[] {
     const fixed = view.getUint32(offset, true);
     offset += 4;
 
-    // Filter out unused edges
-    // Zig marks unused edges with either:
-    // 1. NaN coordinates and next/twin = maxInt(u32), OR
-    // 2. All zeros (x=0, y=0, next=0, twin=0) for uninitialized slots
     const isUnused =
       Number.isNaN(x) || Number.isNaN(y) || (next === 0 && twin === 0);
 
@@ -281,25 +307,26 @@ function readWasmEdges(): HalfEdge[] {
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const edgesRef = useRef<EdgeContext | null>(null);
+  const fastEdgesRef = useRef<FastEdgeContext | null>(null);
   const isDraggingRef = useRef(false);
   const lastXRef = useRef(0);
   const lastYRef = useRef(0);
   const offsetXRef = useRef(50);
   const offsetYRef = useRef(50);
   const scaleRef = useRef(initialScale);
-  const useWasmRef = useRef(false);
+  const implementationRef = useRef<Implementation>("default");
   const wasmEdgesRef = useRef<HalfEdge[]>([]);
 
   const [showLabels, setShowLabels] = useState(false);
   const [showEdges, setShowEdges] = useState(true);
   const [selectedPreset, setSelectedPreset] = useState(getPresetFromUrl());
-  const [useWasm, _setUseWasm] = useState(false);
+  const [implementation, _setImplementation] =
+    useState<Implementation>("default");
   const [wasmEdges, _setWasmEdges] = useState<HalfEdge[]>([]);
 
-  // Wrapper functions that update both state and refs immediately
-  const setUseWasm = useCallback((value: boolean) => {
-    useWasmRef.current = value;
-    _setUseWasm(value);
+  const setImplementation = useCallback((value: Implementation) => {
+    implementationRef.current = value;
+    _setImplementation(value);
   }, []);
 
   const setWasmEdges = useCallback((edges: HalfEdge[]) => {
@@ -309,11 +336,11 @@ export default function App() {
 
   useEffect(() => {
     edgesRef.current = new EdgeContext(16_384);
+    fastEdgesRef.current = new FastEdgeContext(16_384);
   }, []);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
-    const edges = edgesRef.current;
 
     if (!canvas) {
       return;
@@ -334,14 +361,17 @@ export default function App() {
     ctx.scale(scaleRef.current, scaleRef.current);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Use WASM edges if enabled, otherwise use TypeScript edges
-    const edgeList = useWasmRef.current
-      ? wasmEdgesRef.current
-      : edges
-      ? exportEdges(edges)
-      : [];
+    let edgeList: HalfEdge[] = [];
+    if (implementationRef.current === "wasm") {
+      edgeList = wasmEdgesRef.current;
+    } else if (implementationRef.current === "fast") {
+      const edges = fastEdgesRef.current;
+      edgeList = edges ? exportEdges(edges) : [];
+    } else {
+      const edges = edgesRef.current;
+      edgeList = edges ? exportEdges(edges) : [];
+    }
 
-    // If no edges available, just clear the canvas and return
     if (edgeList.length === 0) {
       return;
     }
@@ -373,7 +403,6 @@ export default function App() {
       const twinEdge = e1.twin !== -1 ? edgeMap.get(e1.twin) : null;
       const isFixed = e1.fixed || twinEdge?.fixed;
 
-      // Only render non-fixed (gray) edges in this pass
       if (!isFixed) {
         drawnEdges.add(hash);
         ctx.strokeStyle = showEdges ? "rgba(210, 210, 210, 1)" : "transparent";
@@ -435,14 +464,16 @@ export default function App() {
   }, [showLabels, showEdges]);
 
   const centerView = useCallback(() => {
-    const edges = edgesRef.current;
-
-    // Use WASM edges if enabled, otherwise use TypeScript edges
-    const edgeList = useWasmRef.current
-      ? wasmEdgesRef.current
-      : edges
-      ? exportEdges(edges)
-      : [];
+    let edgeList: HalfEdge[] = [];
+    if (implementationRef.current === "wasm") {
+      edgeList = wasmEdgesRef.current;
+    } else if (implementationRef.current === "fast") {
+      const edges = fastEdgesRef.current;
+      edgeList = edges ? exportEdges(edges) : [];
+    } else {
+      const edges = edgesRef.current;
+      edgeList = edges ? exportEdges(edges) : [];
+    }
 
     if (edgeList.length === 0) {
       return;
@@ -494,9 +525,9 @@ export default function App() {
 
       try {
         const startTime = performance.now();
+        const impl = implementationRef.current;
 
-        if (useWasmRef.current) {
-          // Load WASM if not already done
+        if (impl === "wasm") {
           if (globalThis.wasmStatus === "uninitialized") {
             await loadWasm();
           }
@@ -506,21 +537,15 @@ export default function App() {
             return;
           }
 
-          // Initialize storage once on first use
           if (!globalThis.wasmInitialized) {
             globalThis.wasm.init();
             globalThis.wasmInitialized = true;
           }
 
-          // Switch to the selected preset (indices match 1:1 with Zig enum)
           globalThis.wasm.setSelectedMap(index);
-
-          // Read edges from WASM
           const edges = readWasmEdges();
 
-          // Update ref immediately for synchronous access
           wasmEdgesRef.current = edges;
-          // Update state for React re-renders
           setWasmEdges(edges);
 
           const endTime = performance.now();
@@ -533,18 +558,38 @@ export default function App() {
           console.log(
             `${((edges.length / duration) * 1000).toFixed(0)} edges/second`,
           );
+        } else if (impl === "fast") {
+          const edges = fastEdgesRef.current;
+          if (!edges) {
+            return;
+          }
+
+          edges.reset();
+          preset.fastFn(edges);
+          const endTime = performance.now();
+          const duration = endTime - startTime;
+
+          console.log(
+            `${preset.name} (Fast) completed in ${duration.toFixed(2)}ms`,
+          );
+          console.log(`Created ${edges.count()} edges`);
+          console.log(
+            `${((edges.count() / duration) * 1000).toFixed(0)} edges/second`,
+          );
         } else {
-          // Use TypeScript implementation
           const edges = edgesRef.current;
           if (!edges) {
             return;
           }
 
-          preset.fn(edges);
+          edges.reset();
+          preset.defaultFn(edges);
           const endTime = performance.now();
           const duration = endTime - startTime;
 
-          console.log(`${preset.name} completed in ${duration.toFixed(2)}ms`);
+          console.log(
+            `${preset.name} (Default) completed in ${duration.toFixed(2)}ms`,
+          );
           console.log(`Created ${edges.count()} edges`);
           console.log(
             `${((edges.count() / duration) * 1000).toFixed(0)} edges/second`,
@@ -644,12 +689,11 @@ export default function App() {
     draw();
   }, [showLabels, showEdges, draw]);
 
-  // Redraw when WASM edges are loaded
   useEffect(() => {
-    if (useWasm && wasmEdges.length > 0) {
+    if (implementation === "wasm" && wasmEdges.length > 0) {
       draw();
     }
-  }, [wasmEdges, useWasm, draw]);
+  }, [wasmEdges, implementation, draw]);
 
   return (
     <div className="relative w-full h-full overflow-hidden">
@@ -690,26 +734,36 @@ export default function App() {
             </ListBox>
           </Popover>
         </Select>
+        <Select
+          className="flex flex-col gap-1 w-40"
+          onChange={(key) => {
+            const newImpl = key as Implementation;
+            setImplementation(newImpl);
+            void loadPreset(selectedPreset);
+          }}
+          value={implementation}
+        >
+          <Label className="text-sm font-semibold text-gray-700">
+            Implementation
+          </Label>
+          <Button className="h-7 px-2 border border-gray-300 bg-white text-sm text-left outline-none">
+            <SelectValue />
+          </Button>
+          <Popover className="bg-white border border-gray-300 shadow-lg">
+            <ListBox className="outline-none w-40">
+              {implementations.map((impl) => (
+                <ListBoxItem
+                  className="cursor-default h-7 px-2 flex items-center text-sm outline-none data-[hovered]:bg-gray-100"
+                  id={impl.key}
+                  key={impl.key}
+                >
+                  {impl.name}
+                </ListBoxItem>
+              ))}
+            </ListBox>
+          </Popover>
+        </Select>
         <div className="flex flex-col gap-1">
-          <StyledCheckbox
-            isSelected={useWasm}
-            onChange={(value) => {
-              setUseWasm(value);
-              // Run async operations without blocking
-              void (async () => {
-                if (value) {
-                  // Pre-load WASM module when toggling on
-                  if (globalThis.wasmStatus === "uninitialized") {
-                    await loadWasm();
-                  }
-                }
-                // Reload current preset with new implementation
-                await loadPreset(selectedPreset);
-              })();
-            }}
-          >
-            use WASM
-          </StyledCheckbox>
           <StyledCheckbox isSelected={showEdges} onChange={setShowEdges}>
             show edges
           </StyledCheckbox>

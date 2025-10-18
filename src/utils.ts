@@ -1,8 +1,8 @@
 import { insertPoint, enforceEdge } from "./geometry";
-import { EdgeContext } from "./EdgeContext";
+import { EdgeContext, Point } from "./EdgeContext";
 
-export function P(x: number, y: number): { x: number; y: number } {
-  return { x, y };
+export function P(x: number, y: number): Point {
+  return new Point(x, y);
 }
 
 export function insertSquare(
@@ -11,34 +11,32 @@ export function insertSquare(
   y: number,
   size: number,
 ): void {
-  const coords = [x, y, x + size, y, x + size, y + size, x, y + size];
+  const coords = [
+    new Point(x, y),
+    new Point(x + size, y),
+    new Point(x + size, y + size),
+    new Point(x, y + size),
+  ];
 
-  for (let i = 0; i < coords.length; i += 2) {
-    const px = coords[i]!;
-    const py = coords[i + 1]!;
-    insertPoint(ctx, px, py);
+  for (const point of coords) {
+    insertPoint(ctx, point);
   }
 
-  for (let i = 0; i < coords.length; i += 2) {
-    const ax = coords[i]!;
-    const ay = coords[i + 1]!;
-    const bx = coords[(i + 2) % coords.length]!;
-    const by = coords[(i + 3) % coords.length]!;
-    enforceEdge(ctx, ax, ay, bx, by);
+  for (let i = 0; i < coords.length; i += 1) {
+    const a = coords[i]!;
+    const b = coords[(i + 1) % coords.length]!;
+    enforceEdge(ctx, a, b);
   }
 }
 
-export function insertPolygon(
-  ctx: EdgeContext,
-  points: { x: number; y: number }[],
-): void {
+export function insertPolygon(ctx: EdgeContext, points: Point[]): void {
   for (const point of points) {
-    insertPoint(ctx, point.x, point.y);
+    insertPoint(ctx, point);
   }
   for (let i = 0; i < points.length; i += 1) {
     const a = points[i]!;
     const b = points[(i + 1) % points.length]!;
-    enforceEdge(ctx, a.x, a.y, b.x, b.y);
+    enforceEdge(ctx, a, b);
   }
 }
 
@@ -51,34 +49,22 @@ export function insertOctagon(
   const sqrt2 = Math.sqrt(2);
   const a = size / (sqrt2 + 1);
   const coords = [
-    a / sqrt2 + x,
-    0 + y,
-    a + a / sqrt2 + x,
-    0 + y,
-    size + x,
-    a / sqrt2 + y,
-    size + x,
-    a / sqrt2 + a + y,
-    a + a / sqrt2 + x,
-    size + y,
-    a / sqrt2 + x,
-    size + y,
-    0 + x,
-    a / sqrt2 + a + y,
-    0 + x,
-    a / sqrt2 + y,
+    new Point(a / sqrt2 + x, 0 + y),
+    new Point(a + a / sqrt2 + x, 0 + y),
+    new Point(size + x, a / sqrt2 + y),
+    new Point(size + x, a / sqrt2 + a + y),
+    new Point(a + a / sqrt2 + x, size + y),
+    new Point(a / sqrt2 + x, size + y),
+    new Point(0 + x, a / sqrt2 + a + y),
+    new Point(0 + x, a / sqrt2 + y),
   ];
 
-  for (let i = 0; i < coords.length; i += 2) {
-    const px = coords[i]!;
-    const py = coords[i + 1]!;
-    insertPoint(ctx, px, py);
+  for (const point of coords) {
+    insertPoint(ctx, point);
   }
-  for (let i = 0; i < coords.length; i += 2) {
-    const ax = coords[i]!;
-    const ay = coords[i + 1]!;
-    const bx = coords[(i + 2) % coords.length]!;
-    const by = coords[(i + 3) % coords.length]!;
-    enforceEdge(ctx, ax, ay, bx, by);
+  for (let i = 0; i < coords.length; i += 1) {
+    const a = coords[i]!;
+    const b = coords[(i + 1) % coords.length]!;
+    enforceEdge(ctx, a, b);
   }
 }

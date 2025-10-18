@@ -1,49 +1,26 @@
+import { Point } from "./EdgeContext";
+
 export const EPS = 1e-5;
 
-export function orient2D(
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number,
-  cx: number,
-  cy: number,
-): number {
-  return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+export function orient2D(a: Point, b: Point, c: Point): number {
+  return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
 }
 
-export function inTriangle(
-  px: number,
-  py: number,
-  e1x: number,
-  e1y: number,
-  e2x: number,
-  e2y: number,
-  e3x: number,
-  e3y: number,
-): boolean {
+export function inTriangle(p: Point, e1: Point, e2: Point, e3: Point): boolean {
   return (
-    orient2D(e1x, e1y, e2x, e2y, px, py) > -EPS &&
-    orient2D(e2x, e2y, e3x, e3y, px, py) > -EPS &&
-    orient2D(e3x, e3y, e1x, e1y, px, py) > -EPS
+    orient2D(e1, e2, p) > -EPS &&
+    orient2D(e2, e3, p) > -EPS &&
+    orient2D(e3, e1, p) > -EPS
   );
 }
 
-export function inCircle(
-  px: number,
-  py: number,
-  t1x: number,
-  t1y: number,
-  t2x: number,
-  t2y: number,
-  t3x: number,
-  t3y: number,
-): number {
-  const ax = t1x - px;
-  const ay = t1y - py;
-  const bx = t2x - px;
-  const by = t2y - py;
-  const cx = t3x - px;
-  const cy = t3y - py;
+export function inCircle(p: Point, t1: Point, t2: Point, t3: Point): number {
+  const ax = t1.x - p.x;
+  const ay = t1.y - p.y;
+  const bx = t2.x - p.x;
+  const by = t2.y - p.y;
+  const cx = t3.x - p.x;
+  const cy = t3.y - p.y;
   const ab = ax * ax + ay * ay;
   const cd = cx * cx + cy * cy;
   const bc = bx * bx + by * by;
@@ -54,20 +31,11 @@ export function inCircle(
   );
 }
 
-export function doCross(
-  s1x: number,
-  s1y: number,
-  s2x: number,
-  s2y: number,
-  t1x: number,
-  t1y: number,
-  t2x: number,
-  t2y: number,
-): boolean {
-  const d1 = orient2D(t1x, t1y, t2x, t2y, s1x, s1y);
-  const d2 = orient2D(t1x, t1y, t2x, t2y, s2x, s2y);
-  const d3 = orient2D(s1x, s1y, s2x, s2y, t1x, t1y);
-  const d4 = orient2D(s1x, s1y, s2x, s2y, t2x, t2y);
+export function doCross(s1: Point, s2: Point, t1: Point, t2: Point): boolean {
+  const d1 = orient2D(t1, t2, s1);
+  const d2 = orient2D(t1, t2, s2);
+  const d3 = orient2D(s1, s2, t1);
+  const d4 = orient2D(s1, s2, t2);
   return (
     (d1 > 0 && d2 < 0) ||
     (d1 < 0 && d2 > 0) ||
@@ -77,25 +45,21 @@ export function doCross(
 }
 
 export function intersect(
-  s1x: number,
-  s1y: number,
-  s2x: number,
-  s2y: number,
-  t1x: number,
-  t1y: number,
-  t2x: number,
-  t2y: number,
-): { x: number; y: number } | null {
-  if (!doCross(s1x, s1y, s2x, s2y, t1x, t1y, t2x, t2y)) {
+  s1: Point,
+  s2: Point,
+  t1: Point,
+  t2: Point,
+): Point | null {
+  if (!doCross(s1, s2, t1, t2)) {
     return null;
   }
 
-  const a1 = s2y - s1y;
-  const b1 = s1x - s2x;
-  const c1 = a1 * s1x + b1 * s1y;
-  const a2 = t2y - t1y;
-  const b2 = t1x - t2x;
-  const c2 = a2 * t1x + b2 * t1y;
+  const a1 = s2.y - s1.y;
+  const b1 = s1.x - s2.x;
+  const c1 = a1 * s1.x + b1 * s1.y;
+  const a2 = t2.y - t1.y;
+  const b2 = t1.x - t2.x;
+  const c2 = a2 * t1.x + b2 * t1.y;
   const det = a1 * b2 - a2 * b1;
   if (Math.abs(det) < EPS) {
     return null;
@@ -105,47 +69,40 @@ export function intersect(
   const y = (a1 * c2 - a2 * c1) / det;
 
   if (
-    x < Math.min(s1x, s2x) ||
-    x > Math.max(s1x, s2x) ||
-    y < Math.min(s1y, s2y) ||
-    y > Math.max(s1y, s2y) ||
-    x < Math.min(t1x, t2x) ||
-    x > Math.max(t1x, t2x) ||
-    y < Math.min(t1y, t2y) ||
-    y > Math.max(t1y, t2y)
+    x < Math.min(s1.x, s2.x) ||
+    x > Math.max(s1.x, s2.x) ||
+    y < Math.min(s1.y, s2.y) ||
+    y > Math.max(s1.y, s2.y) ||
+    x < Math.min(t1.x, t2.x) ||
+    x > Math.max(t1.x, t2.x) ||
+    y < Math.min(t1.y, t2.y) ||
+    y > Math.max(t1.y, t2.y)
   ) {
     return null;
   }
 
   if (
-    pointsEqual(x, y, s1x, s1y) ||
-    pointsEqual(x, y, s2x, s2y) ||
-    pointsEqual(x, y, t1x, t1y) ||
-    pointsEqual(x, y, t2x, t2y)
+    pointsEqual(new Point(x, y), s1) ||
+    pointsEqual(new Point(x, y), s2) ||
+    pointsEqual(new Point(x, y), t1) ||
+    pointsEqual(new Point(x, y), t2)
   ) {
     return null;
   }
 
-  return { x, y };
+  return new Point(x, y);
 }
 
-export function onSegment(
-  px: number,
-  py: number,
-  s1x: number,
-  s1y: number,
-  s2x: number,
-  s2y: number,
-): boolean {
-  if (Math.abs(orient2D(s1x, s1y, s2x, s2y, px, py)) > EPS) {
+export function onSegment(p: Point, s1: Point, s2: Point): boolean {
+  if (Math.abs(orient2D(s1, s2, p)) > EPS) {
     return false;
   }
 
   if (
-    px < Math.min(s1x, s2x) ||
-    px > Math.max(s1x, s2x) ||
-    py < Math.min(s1y, s2y) ||
-    py > Math.max(s1y, s2y)
+    p.x < Math.min(s1.x, s2.x) ||
+    p.x > Math.max(s1.x, s2.x) ||
+    p.y < Math.min(s1.y, s2.y) ||
+    p.y > Math.max(s1.y, s2.y)
   ) {
     return false;
   }
@@ -153,11 +110,6 @@ export function onSegment(
   return true;
 }
 
-export function pointsEqual(
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number,
-): boolean {
-  return Math.abs(ax - bx) < EPS && Math.abs(ay - by) < EPS;
+export function pointsEqual(a: Point, b: Point): boolean {
+  return Math.abs(a.x - b.x) < EPS && Math.abs(a.y - b.y) < EPS;
 }

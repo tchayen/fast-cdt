@@ -1,131 +1,91 @@
-export class EdgeContext {
-  readonly origins: Float32Array;
-  readonly next: Int32Array;
-  readonly twin: Int32Array;
-  readonly fixed: Uint8Array;
-  readonly inUse: Uint8Array;
-  private readonly freeStack: Int32Array;
-  private freeTop: number;
-  private allocated = 0;
-  private maxUsedIndex = -1;
+export class Point {
+  constructor(public x: number, public y: number) {}
+}
 
-  constructor(private readonly capacity: number) {
+export class HalfEdge {
+  constructor(
+    public origin: Point,
+    public next: HalfEdge | null = null,
+    public twin: HalfEdge | null = null,
+    public fixed: boolean = false,
+  ) {}
+}
+
+export class EdgeContext {
+  private edges: HalfEdge[] = [];
+
+  constructor(public readonly capacity: number) {
     if (!Number.isInteger(capacity) || capacity <= 0) {
       throw new RangeError("EdgeContext: capacity must be positive integer");
-    }
-    this.origins = new Float32Array(capacity * 2);
-    this.next = new Int32Array(capacity).fill(-1);
-    this.twin = new Int32Array(capacity).fill(-1);
-    this.fixed = new Uint8Array(capacity).fill(0);
-    this.inUse = new Uint8Array(capacity).fill(0);
-    this.freeStack = new Int32Array(capacity);
-    this.freeTop = capacity;
-    for (let i = 0; i < capacity; i += 1) {
-      this.freeStack[i] = capacity - 1 - i;
     }
   }
 
   create(
     x: number,
     y: number,
-    next?: number,
-    twin?: number,
+    next?: HalfEdge | null,
+    twin?: HalfEdge | null,
     fixed?: boolean,
-  ): number {
-    if (this.freeTop === 0) {
-      throw new RangeError("EdgeContext: out of memory");
-    }
-    const index = this.freeStack[--this.freeTop]!;
-    this.inUse[index] = 1;
-    this.origins[index * 2] = x;
-    this.origins[index * 2 + 1] = y;
-    this.next[index] = next ?? -1;
-    this.twin[index] = twin ?? -1;
-    this.fixed[index] = fixed ? 1 : 0;
-    this.allocated += 1;
-    if (index > this.maxUsedIndex) {
-      this.maxUsedIndex = index;
-    }
-    return index;
+  ): HalfEdge {
+    const edge = new HalfEdge(
+      new Point(x, y),
+      next ?? null,
+      twin ?? null,
+      fixed ?? false,
+    );
+    this.edges.push(edge);
+    return edge;
   }
 
-  destroy(index: number): void {
-    this.inUse[index] = 0;
-    this.fixed[index] = 0;
-    this.next[index] = -1;
-    this.twin[index] = -1;
-    this.freeStack[this.freeTop++] = index;
-    this.allocated -= 1;
-    if (index === this.maxUsedIndex) {
-      this.recomputeMaxUsedIndex();
+  destroy(edge: HalfEdge): void {
+    const index = this.edges.indexOf(edge);
+    if (index !== -1) {
+      this.edges.splice(index, 1);
     }
   }
 
   reset(): void {
-    this.allocated = 0;
-    this.maxUsedIndex = -1;
-    for (let i = 0; i < this.capacity; i += 1) {
-      this.inUse[i] = 0;
-      this.fixed[i] = 0;
-      this.next[i] = -1;
-      this.twin[i] = -1;
-      this.origins[i * 2] = 0;
-      this.origins[i * 2 + 1] = 0;
-      this.freeStack[i] = this.capacity - 1 - i;
-    }
-    this.freeTop = this.capacity;
+    this.edges = [];
   }
 
-  any(): number {
-    for (let i = 0; i <= this.maxUsedIndex; i += 1) {
-      if (this.inUse[i]) {
-        return i;
-      }
+  any(): HalfEdge {
+    if (this.edges.length === 0) {
+      throw new RangeError("EdgeContext: empty");
     }
-    throw new RangeError("EdgeContext: empty");
+    return this.edges[0]!;
   }
 
-  iterator(): Iterable<number> {
-    const ctx = this;
-    return {
-      *[Symbol.iterator]() {
-        for (let i = 0; i <= ctx.maxUsedIndex; i += 1) {
-          if (ctx.inUse[i]) {
-            yield i;
-          }
-        }
-      },
-    };
+  iterator(): Iterable<HalfEdge> {
+    return this.edges;
   }
 
   count(): number {
-    return this.allocated;
+    return this.edges.length;
   }
 
   countUsed(): number {
-    return this.maxUsedIndex + 1;
+    return this.edges.length;
   }
 
-  setOrigin(index: number, x: number, y: number): void {
-    this.origins[index * 2] = x;
-    this.origins[index * 2 + 1] = y;
-  }
-
-  private recomputeMaxUsedIndex(): void {
-    for (let i = this.maxUsedIndex - 1; i >= 0; i -= 1) {
-      if (this.inUse[i]) {
-        this.maxUsedIndex = i;
-        return;
-      }
-    }
-    this.maxUsedIndex = -1;
+  setOrigin(edge: HalfEdge, x: number, y: number): void {
+    edge.origin.x = x;
+    edge.origin.y = y;
   }
 
   getCapacity(): number {
     return this.capacity;
   }
 
-  isInUse(index: number): boolean {
-    return index >= 0 && index < this.capacity && this.inUse[index] === 1;
+  isInUse(edge: HalfEdge): boolean {
+    return this.edges.includes(edge);
+  }
+
+  // Helper methods to match the old API for easier testing
+  getOriginX(edge: HalfEdge): number {
+    return edge.origin.x;
+  }
+
+  getOriginY(edge: HalfEdge): number {
+    return edge.origin.y;
   }
 }

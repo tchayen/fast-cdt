@@ -1,81 +1,60 @@
 import { orient2D, inCircle, pointsEqual } from "./checks";
-import { EdgeContext } from "./EdgeContext";
+import { EdgeContext, HalfEdge, Point } from "./EdgeContext";
 
-export function isConvexQuad(ctx: EdgeContext, edge: number): boolean {
-  const twin = ctx.twin[edge]!;
-  if (twin === -1) {
+export function isConvexQuad(ctx: EdgeContext, edge: HalfEdge): boolean {
+  const twin = edge.twin;
+  if (twin === null) {
     throw new Error("isConvexQuad requires an internal edge");
   }
 
-  const ax = ctx.origins[edge * 2]!;
-  const ay = ctx.origins[edge * 2 + 1]!;
-  const cIdx = ctx.next[edge]!;
-  const cx = ctx.origins[cIdx * 2]!;
-  const cy = ctx.origins[cIdx * 2 + 1]!;
-  const dIdx = ctx.next[cIdx]!;
-  const dx = ctx.origins[dIdx * 2]!;
-  const dy = ctx.origins[dIdx * 2 + 1]!;
-  const bIdx = ctx.next[ctx.next[twin]!]!;
-  const bx = ctx.origins[bIdx * 2]!;
-  const by = ctx.origins[bIdx * 2 + 1]!;
+  const a = edge.origin;
+  const c = edge.next!.origin;
+  const d = edge.next!.next!.origin;
+  const b = twin.next!.next!.origin;
 
   return (
-    orient2D(ax, ay, bx, by, cx, cy) > 0 &&
-    orient2D(bx, by, cx, cy, dx, dy) > 0 &&
-    orient2D(cx, cy, dx, dy, ax, ay) > 0 &&
-    orient2D(dx, dy, ax, ay, bx, by) > 0
+    orient2D(a, b, c) > 0 &&
+    orient2D(b, c, d) > 0 &&
+    orient2D(c, d, a) > 0 &&
+    orient2D(d, a, b) > 0
   );
 }
 
-export function isDelaunay(ctx: EdgeContext, edge: number): boolean {
-  const twin = ctx.twin[edge]!;
-  if (twin === -1) {
+export function isDelaunay(ctx: EdgeContext, edge: HalfEdge): boolean {
+  const twin = edge.twin;
+  if (twin === null) {
     throw new Error("isDelaunay requires a twin edge");
   }
 
-  const t1x = ctx.origins[edge * 2]!;
-  const t1y = ctx.origins[edge * 2 + 1]!;
-  const t2Idx = ctx.next[edge]!;
-  const t2x = ctx.origins[t2Idx * 2]!;
-  const t2y = ctx.origins[t2Idx * 2 + 1]!;
-  const t3Idx = ctx.next[t2Idx]!;
-  const t3x = ctx.origins[t3Idx * 2]!;
-  const t3y = ctx.origins[t3Idx * 2 + 1]!;
-  const dIdx = ctx.next[ctx.next[twin]!]!;
-  const dx = ctx.origins[dIdx * 2]!;
-  const dy = ctx.origins[dIdx * 2 + 1]!;
+  const t1 = edge.origin;
+  const t2 = edge.next!.origin;
+  const t3 = edge.next!.next!.origin;
+  const d = twin.next!.next!.origin;
 
-  return inCircle(dx, dy, t1x, t1y, t2x, t2y, t3x, t3y) < 0;
+  return inCircle(d, t1, t2, t3) < 0;
 }
 
 export function getVertex(
   ctx: EdgeContext,
-  px: number,
-  py: number,
-  edge: number,
-): number {
-  const ax = ctx.origins[edge * 2]!;
-  const ay = ctx.origins[edge * 2 + 1]!;
-  if (pointsEqual(ax, ay, px, py)) {
+  p: Point,
+  edge: HalfEdge,
+): HalfEdge | null {
+  if (pointsEqual(edge.origin, p)) {
     return edge;
   }
-  const bIdx = ctx.next[edge]!;
-  if (bIdx === -1) {
-    return -1;
+  const bEdge = edge.next;
+  if (bEdge === null) {
+    return null;
   }
-  const bx = ctx.origins[bIdx * 2]!;
-  const by = ctx.origins[bIdx * 2 + 1]!;
-  if (pointsEqual(bx, by, px, py)) {
-    return bIdx;
+  if (pointsEqual(bEdge.origin, p)) {
+    return bEdge;
   }
-  const cIdx = ctx.next[bIdx]!;
-  if (cIdx === -1) {
-    return -1;
+  const cEdge = bEdge.next;
+  if (cEdge === null) {
+    return null;
   }
-  const cx = ctx.origins[cIdx * 2]!;
-  const cy = ctx.origins[cIdx * 2 + 1]!;
-  if (pointsEqual(cx, cy, px, py)) {
-    return cIdx;
+  if (pointsEqual(cEdge.origin, p)) {
+    return cEdge;
   }
   throw new Error("Vertex not found");
 }
