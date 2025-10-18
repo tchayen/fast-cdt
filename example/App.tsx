@@ -180,11 +180,13 @@ type NaiveHalfEdge = {
   twin: NaiveHalfEdge | null;
 };
 
-function isOptimizedContext(ctx: EdgeContext): ctx is OptimizedEdgeContext {
+function isOptimizedContext(
+  ctx: EdgeContext | FastEdgeContext,
+): ctx is OptimizedEdgeContext {
   return "origins" in ctx;
 }
 
-function exportEdges(edges: EdgeContext): HalfEdge[] {
+function exportEdges(edges: EdgeContext | FastEdgeContext): HalfEdge[] {
   const result: HalfEdge[] = [];
 
   if (isOptimizedContext(edges)) {
