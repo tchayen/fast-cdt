@@ -41,8 +41,12 @@ console.log("\n🔨 Building Zig native version...");
 await $`cd zig && zig build -Doptimize=ReleaseFast`;
 console.log("✅ Zig native version built");
 
-async function runJSBenchmark(version: string, distPath: string) {
-  console.log(`BENCHMARKING: ${version}`);
+async function runJSBenchmark(
+  version: string,
+  distPath: string,
+  runtime: "node" | "bun",
+): Promise<number> {
+  console.log(`BENCHMARKING: ${version} (${runtime})`);
 
   const benchmarkCode = `
 import { EdgeContext, playground } from "./${distPath}/index.js";
@@ -81,27 +85,69 @@ console.log(\`  p5:  \${p5.toFixed(6)}ms\`);
 console.log(\`  p50: \${p50.toFixed(6)}ms\`);
 console.log(\`  p95: \${p95.toFixed(6)}ms\`);
 console.log(\`  Ops/sec: \${(1000 / avg).toFixed(2)}\`);
+
+// Output for parsing
+console.log(\`P50_VALUE:\${p50}\`);
   `;
 
-  const tempFile = `benchmark-${version}.js`;
+  const tempFile = `benchmark-${version}-${runtime}.js`;
   await Bun.write(tempFile, benchmarkCode);
-  await $`bun ${tempFile}`;
+  const command = runtime === "node" ? $`node ${tempFile}` : $`bun ${tempFile}`;
+  const result = await command;
+  const output = result.text() || "";
   if (existsSync(tempFile)) {
     rmSync(tempFile);
   }
+
+  // Parse p50 from output
+  const match = output.match(/P50_VALUE:([\d.]+)/);
+  if (!match || !match[1]) {
+    return 0;
+  }
+  return Number.parseFloat(match[1]);
 }
 
-await runJSBenchmark("default", "dist");
-await runJSBenchmark("fast", "dist-fast");
+const defaultNodeP50 = await runJSBenchmark("default", "dist", "node");
+const defaultBunP50 = await runJSBenchmark("default", "dist", "bun");
+const fastNodeP50 = await runJSBenchmark("fast", "dist-fast", "node");
+const fastBunP50 = await runJSBenchmark("fast", "dist-fast", "bun");
 
 console.log("BENCHMARKING: Zig Native");
-await $`./zig/zig-out/bin/zcdt`;
+const zigResult = await $`./zig/zig-out/bin/zcdt 2>&1`;
+const zigOutput = zigResult.text() || "";
+const zigMatch = zigOutput.match(/p50:\s+([\d.]+)ms/);
+const zigP50 = zigMatch?.[1] ? Number.parseFloat(zigMatch[1]) : 0;
 
 console.log("BENCHMARK COMPLETE");
-console.log("\n✅ All benchmarks completed successfully!");
+
+// Summary table
+const results = [
+  { name: "Default JS (Node/V8)", p50: defaultNodeP50 },
+  { name: "Default JS (Bun/JSC)", p50: defaultBunP50 },
+  { name: "Fast JS (Node/V8)", p50: fastNodeP50 },
+  { name: "Fast JS (Bun/JSC)", p50: fastBunP50 },
+  { name: "Zig Native", p50: zigP50 },
+];
+
+// Sort by p50 descending (slowest first)
+results.sort((a, b) => b.p50 - a.p50);
+
+// Use the slowest as baseline
+const baseline = results[0].p50;
+
+console.log("\nSUMMARY");
 console.log(
-  "\nCompare the results above to see the performance differences between:",
+  `${"Version".padEnd(25)} ${"p50 (ms)".padStart(12)} ${"Speedup".padStart(
+    12,
+  )}`,
 );
-console.log("  1. Default JS version (src)");
-console.log("  2. Fast JS version (fast)");
-console.log("  3. Zig native version");
+console.log("-".repeat(65));
+
+for (const result of results) {
+  const speedup = baseline / result.p50;
+  console.log(
+    `${result.name.padEnd(25)} ${result.p50.toFixed(6).padStart(12)} ${speedup
+      .toFixed(2)
+      .padStart(11)}x`,
+  );
+}
