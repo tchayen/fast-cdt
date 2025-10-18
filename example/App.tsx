@@ -190,6 +190,7 @@ export default function App() {
       edgeMap.set(edge.index, edge);
     }
 
+    // First pass: render gray edges
     for (const e1 of edgeList) {
       if (e1.next === -1) {
         continue;
@@ -204,24 +205,59 @@ export default function App() {
       if (drawnEdges.has(hash)) {
         continue;
       }
-      drawnEdges.add(hash);
 
       const twinEdge = e1.twin !== -1 ? edgeMap.get(e1.twin) : null;
-      if (e1.fixed || twinEdge?.fixed) {
-        ctx.strokeStyle = "rgba(0, 0, 0, 1)";
-        ctx.lineWidth = (2 * dpr) / scaleRef.current;
-      } else {
+      const isFixed = e1.fixed || twinEdge?.fixed;
+
+      // Only render non-fixed (gray) edges in this pass
+      if (!isFixed) {
+        drawnEdges.add(hash);
         ctx.strokeStyle = showEdges ? "rgba(210, 210, 210, 1)" : "transparent";
         ctx.lineWidth = (1 * dpr) / scaleRef.current;
+
+        ctx.beginPath();
+        ctx.moveTo(e1.x, e1.y);
+        ctx.lineTo(e2.x, e2.y);
+        ctx.stroke();
+
+        points.add(`${e1.x},${e1.y}`.toString());
+        points.add(`${e2.x},${e2.y}`.toString());
+      }
+    }
+
+    // Second pass: render black bold edges on top
+    for (const e1 of edgeList) {
+      if (e1.next === -1) {
+        continue;
       }
 
-      ctx.beginPath();
-      ctx.moveTo(e1.x, e1.y);
-      ctx.lineTo(e2.x, e2.y);
-      ctx.stroke();
+      const e2 = edgeMap.get(e1.next);
+      if (!e2) {
+        continue;
+      }
 
-      points.add(`${e1.x},${e1.y}`.toString());
-      points.add(`${e2.x},${e2.y}`.toString());
+      const hash = edgeToString(e1.x, e1.y, e2.x, e2.y);
+      if (drawnEdges.has(hash)) {
+        continue;
+      }
+
+      const twinEdge = e1.twin !== -1 ? edgeMap.get(e1.twin) : null;
+      const isFixed = e1.fixed || twinEdge?.fixed;
+
+      // Only render fixed (black bold) edges in this pass
+      if (isFixed) {
+        drawnEdges.add(hash);
+        ctx.strokeStyle = "rgba(0, 0, 0, 1)";
+        ctx.lineWidth = (2 * dpr) / scaleRef.current;
+
+        ctx.beginPath();
+        ctx.moveTo(e1.x, e1.y);
+        ctx.lineTo(e2.x, e2.y);
+        ctx.stroke();
+
+        points.add(`${e1.x},${e1.y}`.toString());
+        points.add(`${e2.x},${e2.y}`.toString());
+      }
     }
 
     if (showLabels) {
