@@ -20,6 +20,7 @@ export function runBenchmark(
     fn(edges);
     const end = performance.now();
     times.push(end - start);
+    edges.reset();
   }
 
   // Sort times for percentile calculation.

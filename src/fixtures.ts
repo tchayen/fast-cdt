@@ -3,7 +3,6 @@ import { square, insertPoint, enforceEdge, removePoint } from "./geometry";
 import { insertSquare, insertOctagon, insertPolygon, P } from "./utils";
 
 export function playground(edges: EdgeContext): void {
-  edges.reset();
   square(edges, 400, 400);
 
   insertSquare(edges, 200, 320, 4);
@@ -125,7 +124,6 @@ export function playground(edges: EdgeContext): void {
 }
 
 export function pointRemoval(edges: EdgeContext): void {
-  edges.reset();
   square(edges, 400, 400);
 
   // River middle.
@@ -189,7 +187,6 @@ export function pointRemoval(edges: EdgeContext): void {
 }
 
 export function selfIntersecting(edges: EdgeContext): void {
-  edges.reset();
   square(edges, 100, 100);
 
   insertPoint(edges, 30, 40);
@@ -205,10 +202,6 @@ export function selfIntersecting(edges: EdgeContext): void {
 }
 
 export function grid(edges: EdgeContext): void {
-  edges.reset();
-  for (let i = 0; i < edges.count(); i += 1) {
-    edges.fixed[i] = 0;
-  }
   square(edges, 100, 100);
 
   const a = 50;
@@ -231,10 +224,6 @@ export function grid(edges: EdgeContext): void {
 }
 
 export function benchmarkGrid(edges: EdgeContext): void {
-  edges.reset();
-  for (let i = 0; i < edges.count(); i += 1) {
-    edges.fixed[i] = 0;
-  }
   square(edges, 100, 100);
 
   const a = 100;
@@ -261,7 +250,6 @@ export function benchmarkGrid(edges: EdgeContext): void {
 }
 
 export function tinySquare(edges: EdgeContext): void {
-  edges.reset();
   square(edges, 4, 4);
 
   insertSquare(edges, 0, 0, 1);
