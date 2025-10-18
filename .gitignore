@@ -38,3 +38,5 @@ example/styles.css
 
 .zig-cache
 zig-out
+
+dist-fast/

@@ -35,7 +35,7 @@ const StaticRing = @import("StaticRing.zig").StaticRing;
 const eps = 1e-10;
 const STACK_LIMIT = 128;
 const QUEUE_LIMIT = 256;
-pub const CAPACITY = 16_384;
+pub const CAPACITY = 3200;
 
 pub const EdgeContext = MemoryPool(HalfEdge, CAPACITY);
 pub const Stack = StaticStack(*HalfEdge, STACK_LIMIT);
