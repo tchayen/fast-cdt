@@ -349,7 +349,7 @@ export function insertPoint(ctx: EdgeContext, p: Point): void {
 }
 
 function hasIntersection(
-  ctx: EdgeContext,
+  _ctx: EdgeContext,
   edge: HalfEdge,
   e1: Point,
   e2: Point,
@@ -463,7 +463,7 @@ export function getIntersecting(
 }
 
 function markCrossing(
-  ctx: EdgeContext,
+  _ctx: EdgeContext,
   edge: HalfEdge,
   e1: Point,
   e2: Point,
@@ -595,7 +595,7 @@ export function enforceEdge(ctx: EdgeContext, e1: Point, e2: Point): void {
   }
 }
 
-function isBoundaryEdge(ctx: EdgeContext, edge: HalfEdge): boolean {
+function isBoundaryEdge(_ctx: EdgeContext, edge: HalfEdge): boolean {
   return edge.twin === null;
 }
 
@@ -735,7 +735,7 @@ export function removeCollinear(
 }
 
 function computeIsEar(
-  ctx: EdgeContext,
+  _ctx: EdgeContext,
   boundary: Ring<HalfEdge>,
   aNode: RingNode<HalfEdge>,
   bNode: RingNode<HalfEdge>,
