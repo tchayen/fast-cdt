@@ -5,8 +5,9 @@
   "scripts": {
     "dev": "bun run dev:css & bun --hot server.ts",
     "dev:css": "bun tailwindcss --watch -i ./styles.source.css -o ./styles.css",
-    "build": "bun run build:css && bun build index.html --outdir dist --minify",
-    "build:css": "bun tailwindcss -i ./styles.source.css -o ./styles.css"
+    "build": "bun run build:css && bun build index.html --outdir dist --minify && bun run copy:wasm",
+    "build:css": "bun tailwindcss -i ./styles.source.css -o ./styles.css",
+    "copy:wasm": "cp ../zig/zig-out/bin/lib.wasm dist/"
   },
   "dependencies": {
     "react": "^19.2.0",

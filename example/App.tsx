@@ -11,6 +11,7 @@ import {
   Select,
   SelectValue,
 } from "react-aria-components";
+// Toggle between implementations: change "../slow-src" to ".." for optimized version
 import {
   EdgeContext,
   grid,
@@ -18,7 +19,33 @@ import {
   pointRemoval,
   selfIntersecting,
   tinySquare,
-} from "..";
+} from "../slower-src";
+
+declare global {
+  var wasm: {
+    exportPacked(): void;
+    init(): void;
+    len(): number;
+    memory: WebAssembly.Memory;
+    ptr(): number;
+    setSelectedMap(i: number): void;
+  };
+  var wasmStore: WasmStore | undefined;
+  var wasmStatus: "uninitialized" | "loading" | "available";
+  var wasmInitialized: boolean;
+}
+
+// Initialize global state
+if (globalThis.wasmStatus === undefined) {
+  globalThis.wasmStatus = "uninitialized";
+}
+if (globalThis.wasmInitialized === undefined) {
+  globalThis.wasmInitialized = false;
+}
+
+type WasmStore = {
+  edges: HalfEdge[];
+};
 
 type HalfEdge = {
   fixed: boolean;
@@ -35,6 +62,7 @@ type Preset = {
   name: string;
 };
 
+// Presets match 1:1 with Zig SelectedMap enum
 const presets: Preset[] = [
   { fn: playground, key: "playground", name: "Playground" },
   { fn: pointRemoval, key: "point-removal", name: "Point Removal" },
@@ -102,28 +130,75 @@ function updateUrl(presetIndex: number): void {
   window.history.replaceState({}, "", url);
 }
 
+// Type guard for optimized implementation
+type OptimizedEdgeContext = EdgeContext & {
+  fixed: Uint8Array;
+  isInUse: (index: number) => boolean;
+  next: Int32Array;
+  origins: Float32Array;
+  twin: Int32Array;
+};
+
+// Type for naive implementation edge
+type NaiveHalfEdge = {
+  fixed: boolean;
+  next: NaiveHalfEdge | null;
+  origin: { x: number; y: number };
+  twin: NaiveHalfEdge | null;
+};
+
+function isOptimizedContext(ctx: EdgeContext): ctx is OptimizedEdgeContext {
+  return "origins" in ctx;
+}
+
 function exportEdges(edges: EdgeContext): HalfEdge[] {
   const result: HalfEdge[] = [];
-  const capacity = edges.getCapacity();
 
-  for (let i = 0; i < capacity; i++) {
-    if (!edges.isInUse(i)) {
-      continue;
+  if (isOptimizedContext(edges)) {
+    // Optimized implementation with typed arrays
+    const capacity = edges.getCapacity();
+    for (let i = 0; i < capacity; i++) {
+      if (!edges.isInUse(i)) {
+        continue;
+      }
+
+      const originX = edges.origins[i * 2]!;
+      const originY = edges.origins[i * 2 + 1]!;
+      const next = edges.next[i]!;
+      const twin = edges.twin[i]!;
+      const fixed = edges.fixed[i] === 1;
+
+      result.push({
+        fixed,
+        index: i,
+        next,
+        twin,
+        x: originX,
+        y: originY,
+      });
     }
+  } else {
+    // Naive implementation with classes
+    const edgeList = [...edges.iterator()] as unknown as NaiveHalfEdge[];
+    const edgeToIndex = new Map<NaiveHalfEdge, number>();
 
-    const originX = edges.origins[i * 2]!;
-    const originY = edges.origins[i * 2 + 1]!;
-    const next = edges.next[i]!;
-    const twin = edges.twin[i]!;
-    const fixed = edges.fixed[i] === 1;
+    // Create index mapping for edges
+    edgeList.forEach((edge, idx) => {
+      edgeToIndex.set(edge, idx);
+    });
 
-    result.push({
-      fixed,
-      index: i,
-      next,
-      twin,
-      x: originX,
-      y: originY,
+    edgeList.forEach((edge, idx) => {
+      const nextEdge = edge.next;
+      const twinEdge = edge.twin;
+
+      result.push({
+        fixed: edge.fixed,
+        index: idx,
+        next: nextEdge ? edgeToIndex.get(nextEdge) ?? -1 : -1,
+        twin: twinEdge ? edgeToIndex.get(twinEdge) ?? -1 : -1,
+        x: edge.origin.x,
+        y: edge.origin.y,
+      });
     });
   }
 
@@ -140,6 +215,69 @@ function edgeToString(x1: number, y1: number, x2: number, y2: number): string {
   }
 }
 
+async function loadWasm(): Promise<void> {
+  if (globalThis.wasmStatus !== "uninitialized") {
+    return;
+  }
+  globalThis.wasmStatus = "loading";
+
+  const responsePromise = fetch("/lib.wasm");
+  const { instance } = await WebAssembly.instantiateStreaming(
+    responsePromise,
+    {},
+  );
+
+  const { exports } = instance;
+  const memory = exports.memory;
+
+  globalThis.wasm = { memory, ...instance.exports } as typeof wasm;
+
+  globalThis.wasmStatus = "available";
+}
+
+function readWasmEdges(): HalfEdge[] {
+  if (!globalThis.wasm) {
+    return [];
+  }
+
+  globalThis.wasm.exportPacked();
+
+  const ptr = globalThis.wasm.ptr();
+  const len = globalThis.wasm.len();
+
+  const view = new DataView(globalThis.wasm.memory.buffer, ptr, len);
+  const edges: HalfEdge[] = [];
+
+  let offset = 0;
+  let index = 0;
+  while (offset < len) {
+    const x = view.getFloat32(offset, true);
+    offset += 4;
+    const y = view.getFloat32(offset, true);
+    offset += 4;
+    const next = view.getUint32(offset, true);
+    offset += 4;
+    const twin = view.getUint32(offset, true);
+    offset += 4;
+    const fixed = view.getUint32(offset, true);
+    offset += 4;
+
+    // Filter out unused edges
+    // Zig marks unused edges with either:
+    // 1. NaN coordinates and next/twin = maxInt(u32), OR
+    // 2. All zeros (x=0, y=0, next=0, twin=0) for uninitialized slots
+    const isUnused =
+      Number.isNaN(x) || Number.isNaN(y) || (next === 0 && twin === 0);
+
+    if (!isUnused) {
+      edges.push({ fixed: Boolean(fixed), index, next, twin, x, y });
+    }
+    index++;
+  }
+
+  return edges;
+}
+
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const edgesRef = useRef<EdgeContext | null>(null);
@@ -149,19 +287,35 @@ export default function App() {
   const offsetXRef = useRef(50);
   const offsetYRef = useRef(50);
   const scaleRef = useRef(initialScale);
+  const useWasmRef = useRef(false);
+  const wasmEdgesRef = useRef<HalfEdge[]>([]);
 
   const [showLabels, setShowLabels] = useState(false);
   const [showEdges, setShowEdges] = useState(true);
   const [selectedPreset, setSelectedPreset] = useState(getPresetFromUrl());
+  const [useWasm, _setUseWasm] = useState(false);
+  const [wasmEdges, _setWasmEdges] = useState<HalfEdge[]>([]);
+
+  // Wrapper functions that update both state and refs immediately
+  const setUseWasm = useCallback((value: boolean) => {
+    useWasmRef.current = value;
+    _setUseWasm(value);
+  }, []);
+
+  const setWasmEdges = useCallback((edges: HalfEdge[]) => {
+    wasmEdgesRef.current = edges;
+    _setWasmEdges(edges);
+  }, []);
 
   useEffect(() => {
-    edgesRef.current = new EdgeContext(64_000);
+    edgesRef.current = new EdgeContext(16_384);
   }, []);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const edges = edgesRef.current;
-    if (!canvas || !edges) {
+
+    if (!canvas) {
       return;
     }
 
@@ -180,10 +334,20 @@ export default function App() {
     ctx.scale(scaleRef.current, scaleRef.current);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Use WASM edges if enabled, otherwise use TypeScript edges
+    const edgeList = useWasmRef.current
+      ? wasmEdgesRef.current
+      : edges
+      ? exportEdges(edges)
+      : [];
+
+    // If no edges available, just clear the canvas and return
+    if (edgeList.length === 0) {
+      return;
+    }
+
     const points = new Set<string>();
     const drawnEdges = new Set<string>();
-
-    const edgeList = exportEdges(edges);
 
     const edgeMap = new Map<number, HalfEdge>();
     for (const edge of edgeList) {
@@ -272,11 +436,13 @@ export default function App() {
 
   const centerView = useCallback(() => {
     const edges = edgesRef.current;
-    if (!edges) {
-      return;
-    }
 
-    const edgeList = exportEdges(edges);
+    // Use WASM edges if enabled, otherwise use TypeScript edges
+    const edgeList = useWasmRef.current
+      ? wasmEdgesRef.current
+      : edges
+      ? exportEdges(edges)
+      : [];
 
     if (edgeList.length === 0) {
       return;
@@ -318,12 +484,7 @@ export default function App() {
   }, [draw]);
 
   const loadPreset = useCallback(
-    (index: number) => {
-      const edges = edgesRef.current;
-      if (!edges) {
-        return;
-      }
-
+    async (index: number) => {
       const preset = presets[index];
       if (!preset) {
         return;
@@ -333,15 +494,62 @@ export default function App() {
 
       try {
         const startTime = performance.now();
-        preset.fn(edges);
-        const endTime = performance.now();
-        const duration = endTime - startTime;
 
-        console.log(`${preset.name} completed in ${duration.toFixed(2)}ms`);
-        console.log(`Created ${edges.count()} edges`);
-        console.log(
-          `${((edges.count() / duration) * 1000).toFixed(0)} edges/second`,
-        );
+        if (useWasmRef.current) {
+          // Load WASM if not already done
+          if (globalThis.wasmStatus === "uninitialized") {
+            await loadWasm();
+          }
+
+          if (globalThis.wasmStatus !== "available") {
+            console.error("WASM module not available");
+            return;
+          }
+
+          // Initialize storage once on first use
+          if (!globalThis.wasmInitialized) {
+            globalThis.wasm.init();
+            globalThis.wasmInitialized = true;
+          }
+
+          // Switch to the selected preset (indices match 1:1 with Zig enum)
+          globalThis.wasm.setSelectedMap(index);
+
+          // Read edges from WASM
+          const edges = readWasmEdges();
+
+          // Update ref immediately for synchronous access
+          wasmEdgesRef.current = edges;
+          // Update state for React re-renders
+          setWasmEdges(edges);
+
+          const endTime = performance.now();
+          const duration = endTime - startTime;
+
+          console.log(
+            `${preset.name} (WASM) completed in ${duration.toFixed(2)}ms`,
+          );
+          console.log(`Created ${edges.length} edges`);
+          console.log(
+            `${((edges.length / duration) * 1000).toFixed(0)} edges/second`,
+          );
+        } else {
+          // Use TypeScript implementation
+          const edges = edgesRef.current;
+          if (!edges) {
+            return;
+          }
+
+          preset.fn(edges);
+          const endTime = performance.now();
+          const duration = endTime - startTime;
+
+          console.log(`${preset.name} completed in ${duration.toFixed(2)}ms`);
+          console.log(`Created ${edges.count()} edges`);
+          console.log(
+            `${((edges.count() / duration) * 1000).toFixed(0)} edges/second`,
+          );
+        }
 
         centerView();
       } catch (error) {
@@ -436,6 +644,13 @@ export default function App() {
     draw();
   }, [showLabels, showEdges, draw]);
 
+  // Redraw when WASM edges are loaded
+  useEffect(() => {
+    if (useWasm && wasmEdges.length > 0) {
+      draw();
+    }
+  }, [wasmEdges, useWasm, draw]);
+
   return (
     <div className="relative w-full h-full overflow-hidden">
       <canvas
@@ -476,6 +691,25 @@ export default function App() {
           </Popover>
         </Select>
         <div className="flex flex-col gap-1">
+          <StyledCheckbox
+            isSelected={useWasm}
+            onChange={(value) => {
+              setUseWasm(value);
+              // Run async operations without blocking
+              void (async () => {
+                if (value) {
+                  // Pre-load WASM module when toggling on
+                  if (globalThis.wasmStatus === "uninitialized") {
+                    await loadWasm();
+                  }
+                }
+                // Reload current preset with new implementation
+                await loadPreset(selectedPreset);
+              })();
+            }}
+          >
+            use WASM
+          </StyledCheckbox>
           <StyledCheckbox isSelected={showEdges} onChange={setShowEdges}>
             show edges
           </StyledCheckbox>
