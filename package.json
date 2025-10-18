@@ -1,9 +1,21 @@
 {
   "name": "fast-cdt",
-  "module": "index.ts",
+  "version": "0.1.0",
   "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "bun build index.ts --outdir dist --target node --format esm && tsc --emitDeclarationOnly --declaration --outDir dist",
+    "build": "bun build index.ts --outdir dist --target node --format esm && bunx tsc index.ts --declaration --emitDeclarationOnly --outDir dist --skipLibCheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "bun test",
