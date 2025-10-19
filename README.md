@@ -11,13 +11,15 @@ This repository contains a benchmark comparing 4 implementations:
 
 The benchmark tests each implementation across different JavaScript runtimes (Node.js/V8 and Bun/JSC).
 
+See the [blog post](https://tchayen.com/notes-from-benchmarking-wasm-and-optimized-js) where I go into more detail.
+
 ## Running
 
 ```
 ./benchmark.ts
 ```
 
-Will do builds of two JS variants, build Zig and also run both WASM and native version (requires zig installed e.g. with `brew`).
+Will do builds of two JS variants, build Zig and also run both WASM and native version. Requires zig 15.1 (or compatible) installed e.g. with `brew`.
 
 Example results on Apple M3 (Air):
 
